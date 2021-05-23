@@ -20,7 +20,6 @@
     "prepublish": "npm run build",
     "publish": "np",
     "build": "tsc --project ./",
-    "test": "test",
     "example:simple": "DEBUG=deflow nodemon -w src examples/simple/index.ts"
   },
   "nodemonConfig": {
