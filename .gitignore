@@ -1,0 +1,11 @@
+# Misc
+*.iml
+.idea
+
+# Dist
+dist
+
+# Modules
+node_modules
+
+.env

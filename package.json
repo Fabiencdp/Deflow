@@ -1,0 +1,58 @@
+{
+  "name": "deflow",
+  "version": "0.0.3",
+  "description": "Deflow is a decentralized job workflow manager backed on Redis",
+  "main": "dist/index.ts",
+  "types": "dist/index.d.ts",
+  "directories": {
+    "lib": "src/lib"
+  },
+  "scripts": {
+    "dev": "nodemon -w src src/index.ts",
+    "example:simple": "DEBUG=deflow nodemon -w src examples/simple/index.ts",
+    "build": "tsc --project ./",
+    "test": "test",
+    "prepublish": "npm run build"
+  },
+  "nodemonConfig": {
+    "restartable": "rs",
+    "ignore": [
+      ".git",
+      "node_modules/**/node_modules"
+    ],
+    "verbose": false,
+    "execMap": {
+      "ts": "node --inspect --require ts-node/register"
+    },
+    "watch": [
+      "src/",
+      "examples/"
+    ],
+    "ext": "js,json,ts",
+    "signal": "SIGINT"
+  },
+  "keywords": [
+    "workflow",
+    "job",
+    "flow",
+    "redis",
+    "automation",
+    "etl"
+  ],
+  "author": "fabiencdp",
+  "license": "WTFPL",
+  "dependencies": {
+    "redis": "^3.1.2",
+    "short-uuid": "^4.2.0",
+    "slugify": "^1.5.3"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.5",
+    "@types/node": "^15.6.0",
+    "@types/redis": "^2.8.28",
+    "nodemon": "^2.0.7",
+    "prettier": "^2.3.0",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.4"
+  }
+}
