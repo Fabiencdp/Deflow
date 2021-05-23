@@ -7,12 +7,21 @@
   "directories": {
     "lib": "src/lib"
   },
+  "np": {
+    "yarn": false,
+    "contents": "dist"
+  },
+  "files": [
+    "README.MD",
+    "dist/"
+  ],
   "scripts": {
     "dev": "nodemon -w src src/index.ts",
-    "example:simple": "DEBUG=deflow nodemon -w src examples/simple/index.ts",
+    "prepublish": "npm run build",
+    "publish": "np",
     "build": "tsc --project ./",
     "test": "test",
-    "prepublish": "npm run build"
+    "example:simple": "DEBUG=deflow nodemon -w src examples/simple/index.ts"
   },
   "nodemonConfig": {
     "restartable": "rs",
