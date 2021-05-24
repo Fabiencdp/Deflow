@@ -1,6 +1,6 @@
 {
   "name": "deflow",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Deflow is a decentralized job workflow manager backed on Redis",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
