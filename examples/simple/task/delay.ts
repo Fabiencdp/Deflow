@@ -1,18 +1,18 @@
-import { Task } from '../../../dist';
+import { Task } from '../../../src';
 
 /**
  * Useless wait time
  * @param task
  */
 export default async (task: Task): Promise<{ name: string; someData: number }> => {
-  console.log('Delay', task.data);
+  console.log('Delay Task', task.data);
 
   const step = await task.getStep();
 
   if (step) {
     const prev = await step.getPrevious();
     if (prev) {
-      console.log('PREV STEP', prev.name);
+      console.log('PREV STEP WAS', prev.name);
     }
   }
 
@@ -26,3 +26,8 @@ export default async (task: Task): Promise<{ name: string; someData: number }> =
 
   return { name: task.stepId, someData: Math.random() };
 };
+
+export async function delay2(task: Task): Promise<{ name: string; someData: number }> {
+  console.log('RUN FN 2', task.data);
+  return Promise.resolve({ name: '', someData: 1 });
+}

@@ -1,4 +1,4 @@
-import { Step } from '../../../dist';
+import { Step } from '../../../src';
 
 /**
  * Useless wait time

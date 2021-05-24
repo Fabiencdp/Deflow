@@ -107,9 +107,6 @@ export default class DeFlow extends DeFlowEmitter {
   public run(workflowId: string): void {
     DeFlow.log('run', workflowId);
 
-    // TODO:
-    // this.queue.flushall();
-
     this._runNextStep(workflowId);
   }
 
@@ -193,10 +190,16 @@ export default class DeFlow extends DeFlowEmitter {
     DeFlow.log('_runNextTask', step.id);
 
     let running = 0;
+    const promises = [];
     while (running < step.options.taskConcurrency) {
       running = running + 1;
-      this._runTaskHandler(step);
+      promises.push(this._runTaskHandler(step));
     }
+
+    await Promise.all(promises);
+
+    // Update step when all task are done
+    this._updateStep(step);
   }
 
   /**
@@ -204,35 +207,37 @@ export default class DeFlow extends DeFlowEmitter {
    * @param step
    * @private
    */
-  private async _runTaskHandler(step: Step) {
+  private async _runTaskHandler(step: Step): Promise<void> {
     DeFlow.log('_runNextTask', step.queues.pending);
 
-    this.queue.rpop(step.taskQueues.pending, async (err, reply) => {
-      if (!reply) {
-        return this._updateStep(step);
-      }
-
-      const jsonTask = JSON.parse(reply) as JSONTask;
-      const task = new Task(jsonTask);
-
-      // Run the task
-      let dest = step.taskQueues.done;
-      try {
-        task.result = await step.runTask(task);
-      } catch (e) {
-        task.error = e.message;
-        task.failedCount = task.failedCount + 1;
-
-        // Retry failed task
-        if (task.failedCount < step.options.taskMaxFailCount) {
-          dest = step.taskQueues.pending;
+    return new Promise((resolve) => {
+      this.queue.rpop(step.taskQueues.pending, async (err, reply) => {
+        if (!reply) {
+          return resolve();
         }
-      }
 
-      const doneTask = JSON.stringify(task);
-      await this.queue.lpush(dest, doneTask);
+        const jsonTask = JSON.parse(reply) as JSONTask;
+        const task = new Task(jsonTask);
 
-      return this._runTaskHandler(step);
+        // Run the task
+        let dest = step.taskQueues.done;
+        try {
+          task.result = await step.runTask(task);
+        } catch (e) {
+          task.error = e.message;
+          task.failedCount = task.failedCount + 1;
+
+          // Retry failed task
+          if (task.failedCount < step.options.taskMaxFailCount) {
+            dest = step.taskQueues.pending;
+          }
+        }
+
+        const doneTask = JSON.stringify(task);
+        await this.queue.lpush(dest, doneTask);
+
+        return resolve(this._runTaskHandler(step));
+      });
     });
   }
 

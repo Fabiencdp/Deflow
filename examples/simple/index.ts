@@ -1,6 +1,6 @@
 import * as path from 'path';
 
-import DeFlow, { AddStep } from '../../dist';
+import DeFlow, { AddStep } from '../../src';
 
 console.clear();
 
