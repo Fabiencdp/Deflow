@@ -1,6 +1,6 @@
 import slugify from 'slugify';
 
-import Task, { JSONTask } from './Task';
+import Task from './Task';
 
 import DeFlow from './index';
 
