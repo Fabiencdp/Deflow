@@ -1,7 +1,6 @@
 import * as path from 'path';
 
-import Step from '../../../src/lib/Step';
-import Task from '../../../src/lib/Task';
+import { Step, Task } from '../../../dist';
 
 /**
  * Useless wait time

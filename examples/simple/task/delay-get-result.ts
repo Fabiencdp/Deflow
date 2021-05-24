@@ -1,6 +1,4 @@
-import * as path from 'path';
-
-import Step from '../../../src/lib/Step';
+import { Step } from '../../../dist';
 
 /**
  * Useless wait time
@@ -11,7 +9,10 @@ export default async (data: unknown, step: Step): Promise<void> => {
   console.log('GET PREV RES');
 
   const prev = await step.getPrevious();
-  const res = await prev.getTasks();
+  if (prev) {
+    const res = await prev.getTasks();
+    console.log(res);
+  }
 
   await new Promise((resolve) => setTimeout(() => resolve(null), 2500));
 };

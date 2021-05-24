@@ -1,4 +1,4 @@
-import Task from '../../../src/lib/Task';
+import { Task } from '../../../dist';
 
 /**
  * Useless wait time

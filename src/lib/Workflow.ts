@@ -1,7 +1,7 @@
 import slugify from 'slugify';
 import { generate } from 'short-uuid';
 
-import Step, { DeFlowStep } from './Step';
+import Step, { AddStep } from './Step';
 
 import DeFlow from './index';
 
@@ -21,7 +21,7 @@ export default class Workflow {
 
   private readonly flow: DeFlow;
 
-  private flowSteps: DeFlowStep[] = [];
+  private flowSteps: AddStep[] = [];
 
   /**
    * Construct a workflow
@@ -41,7 +41,7 @@ export default class Workflow {
    * @param steps
    * @constructor
    */
-  public static create(name: string, steps: DeFlowStep[]): Workflow {
+  public static create(name: string, steps: AddStep[]): Workflow {
     const slug = slugify(name);
     const id = ['wfw', slug, generate().slice(0, 5)].join(':');
     const stepsQueue = [id, 'steps'].join(':');

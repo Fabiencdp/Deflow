@@ -4,16 +4,13 @@
   "description": "Deflow is a decentralized job workflow manager backed on Redis",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "directories": {
-    "lib": "src/lib"
-  },
+  "source": "src/index.ts",
   "np": {
     "yarn": false,
     "contents": "dist"
   },
   "files": [
-    "README.MD",
-    "dist/"
+    "dist"
   ],
   "scripts": {
     "dev": "nodemon -w src src/index.ts",

@@ -4,7 +4,7 @@ import { generate } from 'short-uuid';
 
 import Workflow from './Workflow';
 import Client from './Client';
-import Step, { DeFlowStep, JSONStep } from './Step';
+import Step, { AddStep, JSONStep } from './Step';
 import Task, { JSONTask } from './Task';
 
 const debug = Debug('deflow');
@@ -93,7 +93,7 @@ export default class DeFlow extends DeFlowEmitter {
    * @param name
    * @param steps
    */
-  public static async createWorkflow(name: string, steps: DeFlowStep[]): Promise<Workflow> {
+  public static async createWorkflow(name: string, steps: AddStep[]): Promise<Workflow> {
     DeFlow.log('createWorkflow');
     if (!DeFlow.instance) {
       throw new Error('Flow is not registered, did you forgot to call Flow.register() ?');

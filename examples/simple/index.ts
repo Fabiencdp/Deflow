@@ -1,7 +1,6 @@
 import * as path from 'path';
 
-import DeFlow from '../../src';
-import { DeFlowStep } from '../../src';
+import DeFlow, { AddStep } from '../../dist';
 
 console.clear();
 
@@ -16,7 +15,7 @@ setTimeout(() => {
  * Workflow test file
  */
 async function createSimpleWorkflow(): Promise<void> {
-  const steps: DeFlowStep[] = [
+  const steps: AddStep[] = [
     {
       name: 'ADD TASK',
       tasks: [1],

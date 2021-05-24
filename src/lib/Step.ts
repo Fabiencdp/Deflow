@@ -43,7 +43,7 @@ export type JSONStep<D = unknown> = {
   workflowId: string;
 };
 
-export type DeFlowStep<D = unknown, R = unknown, H = Handler> = {
+export type AddStep<D = unknown, R = unknown, H = Handler> = {
   name: string;
   tasks: D[];
   options?: Partial<StepOptions>;
@@ -61,6 +61,11 @@ export interface CreateStep<D = unknown> {
   handlerFn?: string;
   options?: Partial<StepOptions>;
 }
+
+const defaultStepOptions: StepOptions = {
+  taskMaxFailCount: 1,
+  taskConcurrency: 1,
+};
 
 export default class Step<D = unknown, R = unknown> {
   public id: string;
@@ -84,7 +89,7 @@ export default class Step<D = unknown, R = unknown> {
     done: '',
   };
 
-  public options: StepOptions;
+  public options = defaultStepOptions;
 
   private readonly flow: DeFlow;
 
@@ -245,13 +250,13 @@ export default class Step<D = unknown, R = unknown> {
     });
   }
 
-  public addAfter<D = unknown>(data: DeFlowStep<D>): Step<D>;
-  public addAfter<D = unknown>(data: DeFlowStep<D>[]): Step<D>[];
+  public addAfter<D = unknown>(data: AddStep<D>): Step<D>;
+  public addAfter<D = unknown>(data: AddStep<D>[]): Step<D>[];
 
   /**
    * add a new step after current one
    */
-  public addAfter<D = unknown>(data: DeFlowStep<D> | DeFlowStep<D>[]): Step<D> | Step<D>[] {
+  public addAfter<D = unknown>(data: AddStep<D> | AddStep<D>[]): Step<D> | Step<D>[] {
     if (!Array.isArray(data)) {
       return this._addAfter(data);
     }
@@ -273,7 +278,7 @@ export default class Step<D = unknown, R = unknown> {
    * @param data
    * @private
    */
-  private _addAfter<D = unknown>(data: DeFlowStep<D>): Step<D> {
+  private _addAfter<D = unknown>(data: AddStep<D>): Step<D> {
     const index = parseFloat((this.index + 0.1).toFixed(2));
     DeFlow.log('_addAfter', this.index, index);
 
