@@ -155,26 +155,28 @@ export default class Step<D = unknown, R = unknown> {
    * @param task
    */
   public async runTask(task: Task<D, R>): Promise<R> {
-    let handler: HandlerFunction<D, R>;
+    let handler: HandlerFunction<D, R> | undefined;
 
     const { handlerFn } = this;
 
     // Dynamic import
     if (typeof this.handler === 'string') {
-      const module = await import(this.handler);
+      let module = await import(this.handler);
+
+      // Handle class method resolution
+      if (typeof module === 'object' && 'default' in module) {
+        module = module.default;
+      }
 
       if (handlerFn && typeof module[handlerFn] === 'function') {
         handler = module[handlerFn];
       } else {
-        handler = module.default;
+        handler = module;
       }
+    }
 
-      // Resolve class method
-      if (typeof handler === 'object' && handlerFn && typeof handler[handlerFn] === 'function') {
-        handler = handler[handlerFn];
-      }
-    } else {
-      throw new Error("Can't resolve taskHandler");
+    if (!handler || typeof handler !== 'function') {
+      throw new Error("Can't resolve task handler function");
     }
 
     return handler(task, this);
