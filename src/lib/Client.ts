@@ -1,6 +1,6 @@
 import redis, { RedisClient } from 'redis';
 
-import { DeFlowOptions } from './index';
+import DeFlow, { DeFlowOptions } from './index';
 
 export default class Client extends RedisClient {
   /**
@@ -20,8 +20,17 @@ export default class Client extends RedisClient {
       retry_max_delay: connection.retryMaxDelay,
     });
 
+    client.on('ready', () => {
+      DeFlow.log('clientReady');
+    });
+
+    client.on('reconnecting', () => {
+      DeFlow.log('clientReconnecting');
+    });
+
     client.on('error', (e) => {
       attempts += 1;
+      DeFlow.log('clientError', attempts, e);
       if (attempts >= maxAttempts) {
         throw new Error(e);
       }

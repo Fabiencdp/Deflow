@@ -146,7 +146,12 @@ export default class Step<D = unknown, R = unknown> {
     };
 
     const step = new Step<D>({ id, ...stepData, taskCount, taskQueues, queues, options });
-    step.store(tasks);
+
+    try {
+      step.store(tasks);
+    } catch (e) {
+      console.log(e);
+    }
 
     return step;
   }
@@ -302,14 +307,25 @@ export default class Step<D = unknown, R = unknown> {
     const promises = [];
 
     const jsonStep = JSON.stringify(this);
-
     promises.push(this.flow.queue.set(this.id, jsonStep));
     promises.push(this.flow.queue.zadd(this.queues.pending, this.index, jsonStep));
-    tasks.forEach((task) => {
-      const jsonTask = JSON.stringify(task);
-      promises.push(this.flow.queue.lpush(this.taskQueues.pending, jsonTask));
-    });
+
+    tasks.forEach((task) => promises.push(this._lpush(task)));
+
     await Promise.all(promises);
+  }
+
+  private _lpush(task: Task): Promise<number> {
+    DeFlow.log('_lpush', task.stepId);
+    return new Promise((resolve) => {
+      const jsonTask = JSON.stringify(task);
+      this.flow.queue.lpush(this.taskQueues.pending, jsonTask, (err, reply) => {
+        if (err) {
+          console.log(err);
+        }
+        resolve(reply);
+      });
+    });
   }
 
   /**

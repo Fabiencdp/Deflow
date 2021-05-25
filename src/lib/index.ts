@@ -87,6 +87,14 @@ export default class DeFlow extends DeFlowEmitter {
     this.subscriber = Client.createRedisClient(this.options);
     this.publisher = Client.createRedisClient(this.options);
     this.queue = Client.createRedisClient(this.options);
+
+    this.queue.set('wfw-ready', 'ready', (err, reply) => {
+      console.log('set', err, reply);
+
+      this.queue.get('wfw-ready', (err, reply) => {
+        console.log('get', err, reply);
+      });
+    });
   }
 
   /**
@@ -96,7 +104,7 @@ export default class DeFlow extends DeFlowEmitter {
   public static async createWorkflow(name: string, steps: AddStep[]): Promise<Workflow> {
     DeFlow.log('createWorkflow');
     if (!DeFlow.instance) {
-      throw new Error('Flow is not registered, did you forgot to call Flow.register() ?');
+      throw new Error('DeFlow is not registered, did you forgot to call Flow.register() ?');
     }
     return Workflow.create(name, steps);
   }
@@ -141,8 +149,7 @@ export default class DeFlow extends DeFlowEmitter {
 
     instance.subscriber.on('message', async (channel, message) => {
       const { workflowId, action, step } = JSON.parse(message) as SignalData;
-
-      DeFlow.log(channel, workflowId, action);
+      DeFlow.log('registerMessage', channel, workflowId, action);
 
       switch (action) {
         case DeFlow.signalActions.STEP_START:
@@ -167,6 +174,8 @@ export default class DeFlow extends DeFlowEmitter {
 
     // Get min
     this.queue.zrange(workflow.stepsQueue, 0, 1, (err, reply) => {
+      DeFlow.log('zrange', reply);
+
       const [json] = reply;
       if (!json) {
         this._clean(workflowId);
