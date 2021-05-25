@@ -87,14 +87,6 @@ export default class DeFlow extends DeFlowEmitter {
     this.subscriber = Client.createRedisClient(this.options);
     this.publisher = Client.createRedisClient(this.options);
     this.queue = Client.createRedisClient(this.options);
-
-    this.queue.set('wfw-ready', 'ready', (err, reply) => {
-      console.log('set', err, reply);
-
-      this.queue.get('wfw-ready', (err, reply) => {
-        console.log('get', err, reply);
-      });
-    });
   }
 
   /**

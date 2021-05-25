@@ -19,19 +19,19 @@ async function createSimpleWorkflow(): Promise<void> {
     {
       name: 'ADD TASK',
       tasks: [1],
-      handler: path.resolve(__dirname, './task/delay.ts'),
+      handler: path.resolve(__dirname, './task/delay'),
       handlerFn: 'delay',
     },
     {
       name: 'ADD TASK FROM CLASS',
       tasks: [1],
-      handler: path.resolve(__dirname, './task/class.ts'),
+      handler: path.resolve(__dirname, './task/class'),
       handlerFn: 'processTask',
     },
     // {
     //   name: 'ADD TASK FROM CLASS 2',
     //   tasks: [1],
-    //   handler: path.resolve(__dirname, './task/class.ts'),
+    //   handler: path.resolve(__dirname, './task/class'),
     //   handlerFn: 'processTask',
     // },
   ];

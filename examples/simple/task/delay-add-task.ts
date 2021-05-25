@@ -15,13 +15,13 @@ export default async (data: Task, step: Step): Promise<void> => {
     .addAfter({
       name: 'DELAY ADDED 1' + data.data,
       tasks: [1],
-      handler: path.resolve(__dirname, './delay.ts'),
+      handler: path.resolve(__dirname, './delay'),
       handlerFn: 'delay2',
     })
     .addAfter({
       name: 'DELAY ADDED 2' + data.data,
       tasks: ['a', 'b', 'c', 'd', 'e'],
-      handler: path.resolve(__dirname, './delay.ts'),
+      handler: path.resolve(__dirname, './delay'),
       handlerFn: 'delay2',
       options: {
         taskConcurrency: 2,
@@ -30,7 +30,7 @@ export default async (data: Task, step: Step): Promise<void> => {
     .addAfter({
       name: 'DELAY ADDED 3' + data.data,
       tasks: ['x', 'y', 'z', 'zz'],
-      handler: path.resolve(__dirname, './delay.ts'),
+      handler: path.resolve(__dirname, './delay'),
       handlerFn: 'delay2',
     });
 
