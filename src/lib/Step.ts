@@ -3,6 +3,7 @@ import slugify from 'slugify';
 import Task from './Task';
 
 import DeFlow from './index';
+import { type } from 'os';
 
 type HandlerFunction<D = unknown, R = unknown> = (
   taskData: Task<D>,
@@ -161,17 +162,18 @@ export default class Step<D = unknown, R = unknown> {
 
     // Dynamic import
     if (typeof this.handler === 'string') {
-      let module = await import(this.handler);
+      let mod = await import(this.handler);
 
-      // Handle class method resolution
-      if (typeof module === 'object' && 'default' in module) {
-        module = module.default;
+      if (handlerFn && typeof mod[handlerFn] === 'function') {
+        mod = mod[handlerFn];
+      } else {
+        mod = mod.default;
       }
 
-      if (handlerFn && typeof module[handlerFn] === 'function') {
-        handler = module[handlerFn];
+      if (handlerFn && typeof mod[handlerFn] === 'function') {
+        handler = mod[handlerFn];
       } else {
-        handler = module;
+        handler = mod;
       }
     }
 

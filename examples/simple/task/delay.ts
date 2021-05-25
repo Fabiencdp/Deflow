@@ -16,7 +16,7 @@ export default async (task: Task): Promise<{ name: string; someData: number }> =
     }
   }
 
-  const time = (task.data as number) % 2 === 0 ? 3000 : 5000;
+  const time = (task.data as number) % 2 === 0 ? 1000 : 2000;
   await new Promise((resolve) => setTimeout(() => resolve(null), time));
 
   // if (task.data === 4) {
@@ -26,8 +26,3 @@ export default async (task: Task): Promise<{ name: string; someData: number }> =
 
   return { name: task.stepId, someData: Math.random() };
 };
-
-export async function delay2(task: Task): Promise<{ name: string; someData: number }> {
-  console.log('RUN FN 2', task.data);
-  return Promise.resolve({ name: '', someData: 1 });
-}
