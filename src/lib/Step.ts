@@ -121,7 +121,7 @@ export default class Step<D = unknown, R = unknown> {
    * Create task
    * @param stepData
    */
-  public static create<D = unknown>(stepData: CreateStep<D>): Step<D> {
+  public static async create<D = unknown>(stepData: CreateStep<D>): Promise<Step<D>> {
     const id = [stepData.workflowId, slugify(stepData.name)].join(':');
 
     // Create tasks
@@ -148,7 +148,7 @@ export default class Step<D = unknown, R = unknown> {
     const step = new Step<D>({ id, ...stepData, taskCount, taskQueues, queues, options });
 
     try {
-      step.store(tasks);
+      await step.store(tasks);
     } catch (e) {
       console.log(e);
     }
@@ -259,27 +259,27 @@ export default class Step<D = unknown, R = unknown> {
     });
   }
 
-  public addAfter<D = unknown>(data: AddStep<D>): Step<D>;
-  public addAfter<D = unknown>(data: AddStep<D>[]): Step<D>[];
+  public addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>>;
+  // public addAfter<D = unknown>(data: AddStep<D>[]): Step<D>[];
 
   /**
    * add a new step after current one
    */
-  public addAfter<D = unknown>(data: AddStep<D> | AddStep<D>[]): Step<D> | Step<D>[] {
-    if (!Array.isArray(data)) {
-      return this._addAfter(data);
-    }
-
-    const steps: Step<D>[] = [];
-    data.forEach((d, index) => {
-      if (index === 0) {
-        steps.push(this._addAfter(d));
-      } else {
-        steps.push(steps[index - 1].addAfter(d));
-      }
-    });
-
-    return steps;
+  public async addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>> {
+    // if (!Array.isArray(data)) {
+    //   return this._addAfter(data);
+    // }
+    return this._addAfter(data);
+    // const steps: Step<D>[] = [];
+    // data.forEach((d, index) => {
+    //   if (index === 0) {
+    //     steps.push(this._addAfter(d));
+    //   } else {
+    //     steps.push(steps[index - 1].addAfter(d));
+    //   }
+    // });
+    //
+    // return steps;
   }
 
   /**
@@ -287,7 +287,7 @@ export default class Step<D = unknown, R = unknown> {
    * @param data
    * @private
    */
-  private _addAfter<D = unknown>(data: AddStep<D>): Step<D> {
+  private async _addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>> {
     const index = parseFloat((this.index + 0.1).toFixed(2));
     DeFlow.log('_addAfter', this.index, index);
 
