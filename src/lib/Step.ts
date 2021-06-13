@@ -128,7 +128,7 @@ export default class Step<D = unknown, R = unknown> {
     const id = [stepData.workflowId, slugify(stepData.name)].join(':');
 
     // Create tasks
-    const tasks = stepData.tasks.map((data) => Task.create({ stepId: id, data }));
+    const tasks = (stepData.tasks || []).map((data) => Task.create({ stepId: id, data }));
     const taskCount = tasks.length;
 
     const taskQueues = {

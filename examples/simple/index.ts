@@ -7,6 +7,7 @@ console.clear();
 
 DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
 
+// We wait for redis client to be ready
 setTimeout(() => {
   console.log('Create example workflow');
   createSimpleWorkflow();
@@ -16,16 +17,25 @@ setTimeout(() => {
  * Workflow test file
  */
 async function createSimpleWorkflow(): Promise<void> {
+  // Each step have one or more tasks
   const steps: AddStep[] = [
     {
-      name: 'ADD TASK',
-      tasks: [1],
-      handler: path.resolve(__dirname, './task/delay.ts'),
+      name: 'Step 1 - Process numeric',
+      tasks: [1, 2, 3],
+      handler: path.resolve(__dirname, './task/step-1-handler'),
+      options: {
+        taskMaxFailCount: 4, // Handler will retry 4 time in case of fail
+      }
     },
     {
-      name: 'ADD TASK 2',
-      tasks: ['a', 'b', 'c'],
-      handler: path.resolve(__dirname, './task/delay.ts'),
+      name: 'Step 2 - Process alpha',
+      tasks: ['a', 'b', 'c', 'd', 'e'],
+      handler: path.resolve(__dirname, './task/step-2-handler'),
+    },
+    {
+      name: 'Step 3 - End',
+      tasks: [null], // This step does not need any data
+      handler: path.resolve(__dirname, './task/step-3-handler'),
     },
   ];
 

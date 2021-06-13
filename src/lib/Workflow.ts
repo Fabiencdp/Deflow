@@ -54,7 +54,7 @@ export default class Workflow {
     const id = [DeFlow.prefix, slug, generate().slice(0, 5)].join(':');
     const stepsQueue = [id, 'steps'].join(':');
     const workflowQueue = [id, 'workflow'].join(':');
-    const data = { id, name: slug, stepsQueue, workflowQueue };
+    const data: JSONWorkflow = { id, name: slug, stepsQueue, workflowQueue };
 
     return new Workflow(data, steps);
   }
