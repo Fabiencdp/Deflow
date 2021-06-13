@@ -4,6 +4,7 @@
   "description": "Deflow is a decentralized job workflow manager backed on Redis",
   "main": "dist/index.ts",
   "types": "dist/index.d.ts",
+  "repository": "https://github.com/Fabiencdp/Deflow",
   "directories": {
     "lib": "src/lib"
   },
@@ -20,7 +21,7 @@
     "prepublish": "npm run build",
     "publish": "np",
     "build": "tsc --project ./",
-    "example:simple": "DEBUG=deflow nodemon -w src examples/simple/index.ts"
+    "example:simple": "DEBUG=deflow:* nodemon -w src -w examples examples/simple/index.ts"
   },
   "nodemonConfig": {
     "restartable": "rs",
@@ -50,6 +51,7 @@
   "author": "fabiencdp",
   "license": "WTFPL",
   "dependencies": {
+    "debug": "^4.3.1",
     "redis": "^3.1.2",
     "short-uuid": "^4.2.0",
     "slugify": "^1.5.3"

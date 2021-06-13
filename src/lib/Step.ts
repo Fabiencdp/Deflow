@@ -1,6 +1,8 @@
+import Debug from 'debug';
+
 import slugify from 'slugify';
 
-import Task, { JSONTask } from './Task';
+import Task from './Task';
 
 import DeFlow from './index';
 
@@ -43,7 +45,7 @@ export type JSONStep<D = unknown> = {
   workflowId: string;
 };
 
-export type DeFlowStep<D = unknown, R = unknown, H = Handler> = {
+export type AddStep<D = unknown, R = unknown, H = Handler> = {
   name: string;
   tasks: D[];
   options?: Partial<StepOptions>;
@@ -61,6 +63,13 @@ export interface CreateStep<D = unknown> {
   handlerFn?: string;
   options?: Partial<StepOptions>;
 }
+
+const defaultStepOptions: StepOptions = {
+  taskMaxFailCount: 1,
+  taskConcurrency: 1,
+};
+
+const debug = Debug('deflow:step');
 
 export default class Step<D = unknown, R = unknown> {
   public id: string;
@@ -84,9 +93,9 @@ export default class Step<D = unknown, R = unknown> {
     done: '',
   };
 
-  public options: StepOptions;
+  public options = defaultStepOptions;
 
-  private readonly flow: DeFlow;
+  private readonly _flow: DeFlow;
 
   /**
    * Construct a step
@@ -108,14 +117,14 @@ export default class Step<D = unknown, R = unknown> {
 
     this.options = step.options;
 
-    this.flow = DeFlow.getInstance();
+    this._flow = DeFlow.getInstance();
   }
 
   /**
    * Create task
    * @param stepData
    */
-  public static create<D = unknown>(stepData: CreateStep<D>): Step<D> {
+  public static async create<D = unknown>(stepData: CreateStep<D>): Promise<Step<D>> {
     const id = [stepData.workflowId, slugify(stepData.name)].join(':');
 
     // Create tasks
@@ -140,7 +149,13 @@ export default class Step<D = unknown, R = unknown> {
     };
 
     const step = new Step<D>({ id, ...stepData, taskCount, taskQueues, queues, options });
-    step.store(tasks);
+
+    // TODO: handle
+    try {
+      await step.store(tasks);
+    } catch (e) {
+      console.log(e);
+    }
 
     return step;
   }
@@ -150,26 +165,29 @@ export default class Step<D = unknown, R = unknown> {
    * @param task
    */
   public async runTask(task: Task<D, R>): Promise<R> {
-    let handler: HandlerFunction<D, R>;
+    let handler: HandlerFunction<D, R> | undefined;
 
     const { handlerFn } = this;
 
     // Dynamic import
     if (typeof this.handler === 'string') {
-      const module = await import(this.handler);
+      let mod = await import(this.handler);
 
-      if (handlerFn && typeof module[handlerFn] === 'function') {
-        handler = module[handlerFn];
+      if (handlerFn && typeof mod[handlerFn] === 'function') {
+        mod = mod[handlerFn];
       } else {
-        handler = module.default;
+        mod = mod.default;
       }
 
-      // Resolve class method
-      if (typeof handler === 'object' && handlerFn && typeof handler[handlerFn] === 'function') {
-        handler = handler[handlerFn];
+      if (handlerFn && typeof mod[handlerFn] === 'function') {
+        handler = mod[handlerFn];
+      } else {
+        handler = mod;
       }
-    } else {
-      throw new Error("Can't resolve taskHandler");
+    }
+
+    if (!handler || typeof handler !== 'function') {
+      throw new Error("Can't resolve task handler function");
     }
 
     return handler(task, this);
@@ -179,7 +197,7 @@ export default class Step<D = unknown, R = unknown> {
    * Get all done tasks
    */
   public async getTasks(): Promise<Task<D, R>[]> {
-    DeFlow.log('getPrevious');
+    debug('getPrevious');
 
     return this.getTaskRange(0, 30);
   }
@@ -188,7 +206,7 @@ export default class Step<D = unknown, R = unknown> {
    * get previous step
    */
   public async getPrevious(): Promise<Step | undefined> {
-    DeFlow.log('getPrevious');
+    debug('getPrevious');
 
     return new Promise((resolve) => {
       const max = `(${this.index}`;
@@ -197,7 +215,7 @@ export default class Step<D = unknown, R = unknown> {
         min = 0;
       }
 
-      this.flow.queue.zrevrangebyscore(this.queues.done, max, min, (err, reply) => {
+      this._flow.queue.zrevrangebyscore(this.queues.done, max, min, (err, reply) => {
         if (err) {
           return resolve(undefined);
         }
@@ -223,7 +241,7 @@ export default class Step<D = unknown, R = unknown> {
     acc: TaskDone<D, R>[] = []
   ): Promise<TaskDone<D, R>[]> {
     return new Promise((resolve) => {
-      this.flow.queue.lrange(this.taskQueues.done, start, stop, (err, reply) => {
+      this._flow.queue.lrange(this.taskQueues.done, start, stop, (err, reply) => {
         if (err) {
           // TODO:
           console.log(err);
@@ -245,27 +263,27 @@ export default class Step<D = unknown, R = unknown> {
     });
   }
 
-  public addAfter<D = unknown>(data: DeFlowStep<D>): Step<D>;
-  public addAfter<D = unknown>(data: DeFlowStep<D>[]): Step<D>[];
+  public addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>>;
+  // public addAfter<D = unknown>(data: AddStep<D>[]): Step<D>[];
 
   /**
    * add a new step after current one
    */
-  public addAfter<D = unknown>(data: DeFlowStep<D> | DeFlowStep<D>[]): Step<D> | Step<D>[] {
-    if (!Array.isArray(data)) {
-      return this._addAfter(data);
-    }
-
-    const steps: Step<D>[] = [];
-    data.forEach((d, index) => {
-      if (index === 0) {
-        steps.push(this._addAfter(d));
-      } else {
-        steps.push(steps[index - 1].addAfter(d));
-      }
-    });
-
-    return steps;
+  public async addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>> {
+    // if (!Array.isArray(data)) {
+    //   return this._addAfter(data);
+    // }
+    return this._addAfter(data);
+    // const steps: Step<D>[] = [];
+    // data.forEach((d, index) => {
+    //   if (index === 0) {
+    //     steps.push(this._addAfter(d));
+    //   } else {
+    //     steps.push(steps[index - 1].addAfter(d));
+    //   }
+    // });
+    //
+    // return steps;
   }
 
   /**
@@ -273,9 +291,9 @@ export default class Step<D = unknown, R = unknown> {
    * @param data
    * @private
    */
-  private _addAfter<D = unknown>(data: DeFlowStep<D>): Step<D> {
+  private async _addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>> {
     const index = parseFloat((this.index + 0.1).toFixed(2));
-    DeFlow.log('_addAfter', this.index, index);
+    debug('_addAfter', this.index, index);
 
     return Step.create({
       index,
@@ -290,17 +308,35 @@ export default class Step<D = unknown, R = unknown> {
    * @param tasks
    */
   public async store(tasks: Task[]): Promise<void> {
-    const promises = [];
+    const promises: Promise<number | null>[] = [];
 
     const jsonStep = JSON.stringify(this);
 
-    promises.push(this.flow.queue.set(this.id, jsonStep));
-    promises.push(this.flow.queue.zadd(this.queues.pending, this.index, jsonStep));
-    tasks.forEach((task) => {
-      const jsonTask = JSON.stringify(task);
-      promises.push(this.flow.queue.lpush(this.taskQueues.pending, jsonTask));
-    });
+    await this._flow.queue.set(this.id, jsonStep);
+    await this._flow.queue.zadd(this.queues.pending, this.index, jsonStep);
+
+    tasks.forEach((task) => promises.push(this._lpush(task)));
+
     await Promise.all(promises);
+  }
+
+  /**
+   * Push task in redis task queue
+   * @param task
+   * @private
+   */
+  private _lpush(task: Task): Promise<number | null> {
+    debug('_lpush', task.stepId);
+    return new Promise((resolve) => {
+      const jsonTask = JSON.stringify(task);
+      this._flow.queue.lpush(this.taskQueues.pending, jsonTask, (err, reply) => {
+        if (err) {
+          console.log(err);
+          resolve(null);
+        }
+        resolve(reply);
+      });
+    });
   }
 
   /**

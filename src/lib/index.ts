@@ -4,7 +4,7 @@ import { generate } from 'short-uuid';
 
 import Workflow from './Workflow';
 import Client from './Client';
-import Step, { DeFlowStep, JSONStep } from './Step';
+import Step, { AddStep, JSONStep } from './Step';
 import Task, { JSONTask } from './Task';
 
 const debug = Debug('deflow');
@@ -29,16 +29,17 @@ interface SignalData<D = unknown> {
 class DeFlowEmitter extends EventEmitter {}
 
 export default class DeFlow extends DeFlowEmitter {
-  // TODO:
   private subscriber!: Client;
   private publisher!: Client;
   public queue!: Client;
+
+  public static prefix = 'dfw';
 
   private readonly uuid = generate();
 
   private static instance: DeFlow;
 
-  private static readonly signalChannel = '_wfw:signal';
+  private static readonly signalChannel = `${DeFlow.prefix}:signal`;
   private static readonly signalActions = {
     CREATE: 'create',
     STEP_START: 'run-next-step',
@@ -80,56 +81,15 @@ export default class DeFlow extends DeFlowEmitter {
   }
 
   /**
-   * Init needed classes
-   */
-  private _init() {
-    DeFlow.log('_init');
-    this.subscriber = Client.createRedisClient(this.options);
-    this.publisher = Client.createRedisClient(this.options);
-    this.queue = Client.createRedisClient(this.options);
-  }
-
-  /**
    * @param name
    * @param steps
    */
-  public static async createWorkflow(name: string, steps: DeFlowStep[]): Promise<Workflow> {
-    DeFlow.log('createWorkflow');
+  public static async createWorkflow(name: string, steps: AddStep[]): Promise<Workflow> {
+    debug('createWorkflow');
     if (!DeFlow.instance) {
-      throw new Error('Flow is not registered, did you forgot to call Flow.register() ?');
+      throw new Error('DeFlow is not registered, did you forgot to call Flow.register() ?');
     }
     return Workflow.create(name, steps);
-  }
-
-  /**
-   * Main run handler
-   */
-  public run(workflowId: string): void {
-    DeFlow.log('run', workflowId);
-
-    // TODO:
-    // this.queue.flushall();
-
-    this._runNextStep(workflowId);
-  }
-
-  /**
-   * @param workflowId
-   * @param step
-   * @private
-   */
-  private async _signalRunNextStep(workflowId: string, step: Step) {
-    DeFlow.log('_signalRunNextStep');
-
-    const data: SignalData = {
-      action: DeFlow.signalActions.STEP_START,
-      creatorId: this.uuid,
-      workflowId,
-      step,
-    };
-
-    const message = JSON.stringify(data);
-    await this.publisher.publish(DeFlow.signalChannel, message);
   }
 
   /**
@@ -144,8 +104,7 @@ export default class DeFlow extends DeFlowEmitter {
 
     instance.subscriber.on('message', async (channel, message) => {
       const { workflowId, action, step } = JSON.parse(message) as SignalData;
-
-      DeFlow.log(channel, workflowId, action);
+      debug('registerMessage', channel, workflowId, action);
 
       switch (action) {
         case DeFlow.signalActions.STEP_START:
@@ -159,18 +118,62 @@ export default class DeFlow extends DeFlowEmitter {
     instance.subscriber.subscribe(DeFlow.signalChannel);
   }
 
+
+  /**
+   * Main run handler
+   */
+  public run(workflowId: string): void {
+    debug('run', workflowId);
+
+    this._runNextStep(workflowId);
+  }
+
+
+  /**
+   * Init needed classes
+   */
+  private _init() {
+    debug('_init');
+    this.subscriber = Client.createRedisClient(this.options);
+    this.publisher = Client.createRedisClient(this.options);
+    this.queue = Client.createRedisClient(this.options);
+  }
+
+  /**
+   * @param workflowId
+   * @param step
+   * @private
+   */
+  private async _signalRunNextStep(workflowId: string, step: Step) {
+    debug('_signalRunNextStep');
+
+    const data: SignalData = {
+      action: DeFlow.signalActions.STEP_START,
+      creatorId: this.uuid,
+      workflowId,
+      step,
+    };
+
+    const message = JSON.stringify(data);
+    await this.publisher.publish(DeFlow.signalChannel, message);
+  }
+
+
   /**
    * @param workflowId
    * @private
    */
   private async _runNextStep(workflowId: string) {
-    DeFlow.log('_runNextStep', workflowId);
+    debug('_runNextStep', workflowId);
 
     const workflow = await Workflow.get(workflowId);
 
     // Get min
     this.queue.zrange(workflow.stepsQueue, 0, 1, (err, reply) => {
+      debug('zrange', reply);
+
       const [json] = reply;
+
       if (!json) {
         this._clean(workflowId);
         return;
@@ -190,13 +193,19 @@ export default class DeFlow extends DeFlowEmitter {
    */
   private async _runNextTask(jsonStep: JSONStep) {
     const step = new Step(jsonStep);
-    DeFlow.log('_runNextTask', step.id);
+    debug('_runNextTask', step.id);
 
     let running = 0;
+    const promises = [];
     while (running < step.options.taskConcurrency) {
       running = running + 1;
-      this._runTaskHandler(step);
+      promises.push(this._runTaskHandler(step));
     }
+
+    await Promise.all(promises);
+
+    // Update step when all task are done
+    return this._updateStep(step);
   }
 
   /**
@@ -204,35 +213,39 @@ export default class DeFlow extends DeFlowEmitter {
    * @param step
    * @private
    */
-  private async _runTaskHandler(step: Step) {
-    DeFlow.log('_runNextTask', step.queues.pending);
+  private async _runTaskHandler(step: Step): Promise<void> {
+    debug('_runNextTask', step.queues.pending);
 
-    this.queue.rpop(step.taskQueues.pending, async (err, reply) => {
-      if (!reply) {
-        return this._updateStep(step);
-      }
-
-      const jsonTask = JSON.parse(reply) as JSONTask;
-      const task = new Task(jsonTask);
-
-      // Run the task
-      let dest = step.taskQueues.done;
-      try {
-        task.result = await step.runTask(task);
-      } catch (e) {
-        task.error = e.message;
-        task.failedCount = task.failedCount + 1;
-
-        // Retry failed task
-        if (task.failedCount < step.options.taskMaxFailCount) {
-          dest = step.taskQueues.pending;
+    return new Promise((resolve) => {
+      this.queue.rpop(step.taskQueues.pending, async (err, reply) => {
+        if (!reply) {
+          return resolve();
         }
-      }
 
-      const doneTask = JSON.stringify(task);
-      await this.queue.lpush(dest, doneTask);
+        const jsonTask = JSON.parse(reply) as JSONTask;
+        const task = new Task(jsonTask);
 
-      return this._runTaskHandler(step);
+        // Run the task
+        let dest = step.taskQueues.done;
+        try {
+          task.result = await step.runTask(task);
+        } catch (e) {
+          task.error = e.message;
+          task.failedCount = task.failedCount + 1;
+
+          // Retry failed task
+          if (task.failedCount < step.options.taskMaxFailCount) {
+            dest = step.taskQueues.pending;
+          } else {
+            console.error('TASK FAILED', task);
+          }
+        }
+
+        const doneTask = JSON.stringify(task);
+        await this.queue.lpush(dest, doneTask);
+
+        return resolve(this._runTaskHandler(step));
+      });
     });
   }
 
@@ -241,7 +254,7 @@ export default class DeFlow extends DeFlowEmitter {
    * @private
    */
   private async _updateStep(step: Step) {
-    DeFlow.log('_updateStep', step.name);
+    debug('_updateStep', step.name);
 
     this.queue.zrange(step.queues.pending, 0, 0, (err, reply) => {
       const [json] = reply;
@@ -272,12 +285,5 @@ export default class DeFlow extends DeFlowEmitter {
     if (workflow) {
       return workflow.clean();
     }
-  }
-
-  /**
-   * @param message
-   */
-  public static log(...message: unknown[]): void {
-    debug(message.join(' '));
   }
 }
