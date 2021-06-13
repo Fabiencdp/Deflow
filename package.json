@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "dev": "nodemon -w src src/index.ts",
-    "prepublish": "npm run build",
+    "prepare": "npm run build",
     "publish": "np",
     "build": "tsc --project ./",
     "test": "",
