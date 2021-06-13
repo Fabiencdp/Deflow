@@ -4,6 +4,7 @@ import { generate } from 'short-uuid';
 import Step, { AddStep } from './Step';
 
 import DeFlow from './index';
+import Debug from 'debug';
 
 export type JSONWorkflow = {
   id: string;
@@ -12,6 +13,8 @@ export type JSONWorkflow = {
   workflowQueue: string;
 };
 
+const debug = Debug('deflow:workflow');
+
 export default class Workflow {
   public readonly id: string;
   public readonly name: string;
@@ -19,20 +22,25 @@ export default class Workflow {
   public readonly stepsQueue: string;
   public readonly workflowQueue: string;
 
-  private readonly flow: DeFlow;
+  private readonly _flow: DeFlow;
 
-  private flowSteps: AddStep[] = [];
+  /**
+   * Temp in memory steps manager
+   */
+  private _steps: AddStep[] = [];
 
   /**
    * Construct a workflow
    * @param workflow
    */
-  constructor(workflow: JSONWorkflow) {
+  constructor(workflow: JSONWorkflow, steps: AddStep[] = []) {
     this.id = workflow.id;
     this.name = workflow.name;
     this.stepsQueue = workflow.stepsQueue;
     this.workflowQueue = workflow.workflowQueue;
-    this.flow = DeFlow.getInstance();
+    this._steps = steps;
+
+    this._flow = DeFlow.getInstance();
   }
 
   /**
@@ -43,13 +51,12 @@ export default class Workflow {
    */
   public static create(name: string, steps: AddStep[]): Workflow {
     const slug = slugify(name);
-    const id = ['wfw', slug, generate().slice(0, 5)].join(':');
+    const id = [DeFlow.prefix, slug, generate().slice(0, 5)].join(':');
     const stepsQueue = [id, 'steps'].join(':');
     const workflowQueue = [id, 'workflow'].join(':');
-    const data = { id, name: slug, stepsQueue, workflowQueue };
-    const workflow = new Workflow(data);
-    workflow.flowSteps = steps;
-    return workflow;
+    const data: JSONWorkflow = { id, name: slug, stepsQueue, workflowQueue };
+
+    return new Workflow(data, steps);
   }
 
   /**
@@ -73,31 +80,32 @@ export default class Workflow {
    * Run the flow
    */
   public async run(): Promise<void> {
-    DeFlow.log('run');
+    debug('run');
     await this.store();
-    await this.initSteps();
-    return this.flow.run(this.id);
+    await this.createSteps();
+    return this._flow.run(this.id);
   }
 
   /**
    *
    */
-  private async initSteps(): Promise<void> {
-    this.flowSteps.map((data, index) => {
+  private async createSteps(): Promise<void> {
+    await this._steps.reduce(async (prev: Promise<any>, data, index) => {
+      await prev;
       return Step.create({
         index,
         workflowId: this.id,
         queue: this.stepsQueue,
         ...data,
       });
-    });
+    }, Promise.resolve());
   }
 
   /**
    * save
    */
-  private async store(): Promise<void> {
-    await this.flow.queue.set([this.id, 'workflow'].join(':'), JSON.stringify(this));
+  private async store(): Promise<boolean> {
+    return this._flow.queue.set(this.workflowQueue, JSON.stringify(this));
   }
 
   /**
@@ -105,21 +113,22 @@ export default class Workflow {
    */
   public async clean(): Promise<number> {
     const pattern = [this.id, '*'].join(':');
-    DeFlow.log('deletePattern', pattern);
+
+    debug('deletePattern', pattern);
 
     return new Promise((resolve, reject) => {
-      this.flow.queue.keys(pattern, (err, keys) => {
+      this._flow.queue.keys(pattern, (err, keys) => {
         if (err) {
           return reject(err);
         }
 
         if (keys.length) {
           // There is a bit of a delay between get/delete but it is unavoidable
-          this.flow.queue.del(keys, (err1, reply) => {
+          this._flow.queue.del(keys, (err1, reply) => {
             if (err) {
               return reject(err);
             }
-            DeFlow.log('deletePatternCount', reply);
+            debug('deletePatternCount', reply);
             return resolve(reply);
           });
         } else {
