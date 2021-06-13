@@ -263,35 +263,12 @@ export default class Step<D = unknown, R = unknown> {
     });
   }
 
-  public addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>>;
-  // public addAfter<D = unknown>(data: AddStep<D>[]): Step<D>[];
-
-  /**
-   * add a new step after current one
-   */
-  public async addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>> {
-    // if (!Array.isArray(data)) {
-    //   return this._addAfter(data);
-    // }
-    return this._addAfter(data);
-    // const steps: Step<D>[] = [];
-    // data.forEach((d, index) => {
-    //   if (index === 0) {
-    //     steps.push(this._addAfter(d));
-    //   } else {
-    //     steps.push(steps[index - 1].addAfter(d));
-    //   }
-    // });
-    //
-    // return steps;
-  }
-
   /**
    * Add step after the current one
    * @param data
    * @private
    */
-  private async _addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>> {
+  public async addAfter<D = unknown>(data: AddStep<D>): Promise<Step<D>> {
     const index = parseFloat((this.index + 0.1).toFixed(2));
     debug('_addAfter', this.index, index);
 
