@@ -1,6 +1,6 @@
 import * as path from 'path';
 
-import { Step, Task } from '../../../src';
+import { Step, Task } from '../../../old';
 
 /**
  * Useless wait time

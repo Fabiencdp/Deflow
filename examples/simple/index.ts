@@ -1,6 +1,6 @@
 import * as path from 'path';
 
-import DeFlow, { AddStep } from '../../src';
+import DeFlow, { WorkFlow } from '../../src';
 
 console.clear();
 
@@ -15,18 +15,11 @@ setTimeout(() => {
  * Workflow test file
  */
 async function createSimpleWorkflow(): Promise<void> {
-  const steps: AddStep[] = [
+  const steps = [
     {
       name: 'ADD TASK',
-      tasks: [1],
+      tasks: [1, 2, 3, 4, 5],
       handler: path.resolve(__dirname, './task/delay'),
-      handlerFn: 'delay',
-    },
-    {
-      name: 'ADD TASK FROM CLASS',
-      tasks: [1],
-      handler: path.resolve(__dirname, './task/class'),
-      handlerFn: 'processTask',
     },
     // {
     //   name: 'ADD TASK FROM CLASS 2',
@@ -36,6 +29,6 @@ async function createSimpleWorkflow(): Promise<void> {
     // },
   ];
 
-  const wfl = await DeFlow.createWorkflow('simple', steps);
+  const wfl = await WorkFlow.create('simple', steps);
   await wfl.run();
 }

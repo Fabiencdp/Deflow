@@ -1,4 +1,4 @@
-import { Task } from '../../../src';
+import { Task } from '../../../old';
 
 /**
  * Useless wait time

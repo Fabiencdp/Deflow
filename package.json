@@ -13,7 +13,7 @@
     "dist"
   ],
   "scripts": {
-    "dev": "nodemon -w src src/index.ts",
+    "dev": "nodemon -w src old/index.ts",
     "prepublish": "npm run build",
     "publish": "np",
     "build": "tsc --project ./",

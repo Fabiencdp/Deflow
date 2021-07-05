@@ -1,85 +1,58 @@
-import DeFlow from "./index";
-import Step, {JSONStep} from "./Step";
+import Debug from 'debug';
+import StepManager from './StepManager';
+import { uuid } from 'short-uuid';
+import TaskManager from './TaskManager';
 
-export type JSONTask<D = unknown, R = unknown> = {
-  data: D;
-  stepId: string;
+const debug = Debug('Task');
 
-  failedCount: number;
-  error: string | undefined;
-
-  result: R | undefined;
-};
-
-type CreateTask<D = unknown> = {
-  data: D;
+export type CreateTask = {
+  data: any[];
+  workFlowId: string;
   stepId: string;
 };
 
-export default class Task<D = unknown, R = unknown> {
-  public data: D;
+export type TaskJSON = {
+  id: string;
+  data: any;
+
+  workFlowId: string;
+  stepId: string;
+};
+
+export default class Step {
+  public id: string;
+  public data: any;
+
+  public workFlowId: string;
   public stepId: string;
 
-  public failedCount: number;
-  public error: string | undefined;
+  constructor(json: TaskJSON) {
+    this.id = json.id;
+    this.data = json.data;
 
-  public result: R | undefined;
-
-  /**
-   * Construct a task
-   * @param data
-   */
-  constructor(data: JSONTask<D, R>) {
-    this.data = data.data;
-    this.stepId = data.stepId;
-    this.result = data.result;
-
-    this.error = data.error;
-    this.failedCount = data.failedCount;
+    this.stepId = json.stepId;
+    this.workFlowId = json.workFlowId;
   }
 
-  /**
-   * @param data
-   */
-  public static create<D = unknown, R = unknown>(data: CreateTask<D>): Task<D, R> {
-    const taskData: JSONTask<D, R> = {
-      failedCount: 0,
-      error: undefined,
+  static async create(data: CreateTask) {
+    const taskInstance = new Step({
+      id: uuid(),
       data: data.data,
       stepId: data.stepId,
-      result: undefined,
-    };
-
-    return new Task(taskData);
-  }
-
-  /**
-   * get task step
-   */
-  public getStep(): Promise<Step> {
-    return new Promise((resolve, reject) => {
-      const flow = DeFlow.getInstance();
-      flow.queue.get(this.stepId, (err, reply) => {
-        if (!reply) {
-          return reject(new Error('Step does not exists'));
-        }
-        const jsonStep = JSON.parse(reply) as JSONStep;
-        return resolve(new Step(jsonStep));
-      })
+      workFlowId: data.workFlowId,
     });
+
+    await TaskManager.store(taskInstance);
+
+    return taskInstance;
   }
 
-  /**
-   * Convert to json
-   */
-  public toJSON(): JSONTask<D, R> {
+  toJSON(): TaskJSON {
     return {
+      id: this.id,
       data: this.data,
       stepId: this.stepId,
-      result: this.result,
-
-      error: this.error,
-      failedCount: this.failedCount,
+      workFlowId: this.workFlowId,
     };
   }
 }

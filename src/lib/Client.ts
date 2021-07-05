@@ -1,6 +1,10 @@
+import Debug from 'debug';
+
 import redis, { RedisClient } from 'redis';
 
-import DeFlow, { DeFlowOptions } from './index';
+const debug = Debug('deflow');
+
+import { DeFlowOptions } from './';
 
 export default class Client extends RedisClient {
   /**
@@ -21,16 +25,16 @@ export default class Client extends RedisClient {
     });
 
     client.on('ready', () => {
-      DeFlow.log('clientReady');
+      debug('clientReady');
     });
 
     client.on('reconnecting', () => {
-      DeFlow.log('clientReconnecting');
+      debug('clientReconnecting');
     });
 
     client.on('error', (e) => {
       attempts += 1;
-      DeFlow.log('clientError', attempts, e);
+      debug('clientError', attempts, e);
       if (attempts >= maxAttempts) {
         throw new Error(e);
       }

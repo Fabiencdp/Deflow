@@ -1,4 +1,4 @@
-import { Step } from '../../../src';
+import { Step } from '../../../old';
 
 /**
  * Useless wait time
