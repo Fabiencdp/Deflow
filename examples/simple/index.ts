@@ -7,8 +7,10 @@ console.clear();
 DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
 
 setTimeout(() => {
-  console.log('Create example workflow');
-  createSimpleWorkflow();
+  if (!process.env.LISTENER) {
+    console.log('Create example workflow');
+    createSimpleWorkflow();
+  }
 }, 2000);
 
 /**
@@ -17,8 +19,18 @@ setTimeout(() => {
 async function createSimpleWorkflow(): Promise<void> {
   const steps = [
     {
-      name: 'ADD TASK',
+      name: 'STEP 1',
       tasks: [1, 2, 3, 4, 5],
+      handler: path.resolve(__dirname, './task/delay'),
+    },
+    {
+      name: 'STEP 2',
+      tasks: [10, 20, 30, 40, 50],
+      handler: path.resolve(__dirname, './task/delay'),
+    },
+    {
+      name: 'STEP 3',
+      tasks: [100, 200, 300],
       handler: path.resolve(__dirname, './task/delay'),
     },
     // {

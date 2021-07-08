@@ -2,6 +2,7 @@ import Debug from 'debug';
 import Client from './Client';
 import { RedisClient } from 'redis';
 import PubSubManager from './PubSubManager';
+import { uuid } from 'short-uuid';
 
 const debug = Debug('deflow');
 
@@ -15,16 +16,14 @@ export interface DeFlowOptions {
   };
 }
 
-export enum Signals {
-  Run,
-}
-
 export default class DeFlow {
   static instance: DeFlow;
 
   public client: RedisClient;
   public subscriber: RedisClient;
   public publisher: RedisClient;
+
+  public id = uuid();
 
   constructor(options: DeFlowOptions) {
     this.client = Client.createRedisClient(options);

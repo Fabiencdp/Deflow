@@ -1,7 +1,6 @@
 import Debug from 'debug';
-import StepManager from './StepManager';
 import { uuid } from 'short-uuid';
-import TaskManager from './TaskManager';
+import DeFlow from './index';
 
 const debug = Debug('Task');
 
@@ -19,12 +18,16 @@ export type TaskJSON = {
   stepId: string;
 };
 
-export default class Step {
+export default class Task {
   public id: string;
   public data: any;
 
   public workFlowId: string;
   public stepId: string;
+
+  public result: any; // TODO
+  public failedCount = 0;
+  public error?: string;
 
   constructor(json: TaskJSON) {
     this.id = json.id;
@@ -35,16 +38,29 @@ export default class Step {
   }
 
   static async create(data: CreateTask) {
-    const taskInstance = new Step({
+    const taskInstance = new Task({
       id: uuid(),
       data: data.data,
       stepId: data.stepId,
       workFlowId: data.workFlowId,
     });
 
-    await TaskManager.store(taskInstance);
+    await taskInstance.store();
 
     return taskInstance;
+  }
+
+  private store(): Promise<boolean> {
+    const deFlow = DeFlow.getInstance();
+
+    const id = [this.workFlowId, this.stepId, 'pending'].join(':');
+    const data = JSON.stringify(this);
+
+    return new Promise((resolve) => {
+      deFlow.client.rpush(id, data, (err, status) => {
+        return resolve(true);
+      });
+    });
   }
 
   toJSON(): TaskJSON {

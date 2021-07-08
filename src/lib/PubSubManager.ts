@@ -1,53 +1,72 @@
 import DeFlow from './index';
-import { WorkFlow } from '../index';
+import WorkFlow from './WorkFlow';
+import Step from './Step';
 
 export enum Action {
-  Run,
+  NextStep,
+  NextTask,
 }
 
-interface Signal {
-  action: Action;
-  data: any;
-}
+type Signal = {
+  publisherId: string;
+};
+
+type SignalNextStep = Signal & {
+  action: Action.NextStep;
+  data: {
+    workFlowId: string;
+  };
+};
+
+type SignalNextTask = Signal & {
+  action: Action.NextTask;
+  data: {
+    workFlowId: string;
+    stepKey: string;
+  };
+};
+
+type Signals = SignalNextStep | SignalNextTask;
 
 export default class PubSubManager {
   private static channel = 'dfw';
 
   static async subscribe() {
-    const deflow = DeFlow.getInstance();
+    const deFlow = DeFlow.getInstance();
 
-    deflow.subscriber.on('pmessage', (pattern, channel, json) => {
-      console.log('message', json);
-      const data: Signal = JSON.parse(json);
+    deFlow.subscriber.on('pmessage', (pattern, channel, json) => {
+      const signal: Signals = JSON.parse(json);
 
-      switch (data.action) {
-        case Action.Run:
-          PubSubManager.onRun(data.data);
+      if (signal.publisherId === deFlow.id) {
+        return;
+      }
+
+      switch (signal.action) {
+        case Action.NextStep:
+          PubSubManager.nextStep(signal);
+          break;
+        case Action.NextTask:
+          PubSubManager.nextTask(signal);
+          break;
       }
     });
 
-    deflow.subscriber.psubscribe(PubSubManager.channel);
+    deFlow.subscriber.psubscribe(PubSubManager.channel);
   }
 
-  static async signal(signal: Signal) {
-    const deflow = DeFlow.getInstance();
-    const jsonSignal = JSON.stringify(signal);
-    deflow.publisher.publish(PubSubManager.channel, jsonSignal);
+  static async publish(signal: Omit<Signals, 'publisherId'>) {
+    const deFlow = DeFlow.getInstance();
+    const publisherId = deFlow.id;
+    const data = { ...signal, action: signal.action, publisherId };
+    const jsonSignal = JSON.stringify(data);
+    deFlow.publisher.publish(PubSubManager.channel, jsonSignal);
   }
 
-  static async onRun(data: any) {
-    console.log('onRun', data);
-    const deflow = DeFlow.getInstance();
+  static async nextTask(signal: SignalNextTask) {
+    return Step.nextTask(signal.data.stepKey);
+  }
 
-    deflow.client.get(data.workFlowId, (err, res) => {
-      console.log(err, res);
-      if (err || !res) {
-        throw new Error(err ? err.message : 'empty');
-      }
-      const data = JSON.parse(res);
-      const workFlowInstance = new WorkFlow(data);
-
-      return workFlowInstance.nextStep();
-    });
+  static async nextStep(signal: SignalNextStep) {
+    return WorkFlow.nextStep(signal.data.workFlowId);
   }
 }

@@ -1,17 +1,18 @@
+import Task from '../../../src/lib/Task';
+
 export default {
-  beforeAll() {
+  async beforeAll() {
     console.log('before all');
+    await new Promise((r) => setTimeout(() => r(null), 5000));
   },
-  beforeEach() {
-    console.log('before each');
+
+  async handler(task: Task) {
+    console.log('HANDLER', task.data);
+    await new Promise((r) => setTimeout(() => r(null), task.data === 30 ? 5000 : 1500));
   },
-  handler() {
-    console.log('HANDLER');
-  },
-  afterEach() {
-    console.log('after each');
-  },
-  afterAll() {
+
+  async afterAll() {
     console.log('after all');
+    await new Promise((r) => setTimeout(() => r(null), 5000));
   },
 };
