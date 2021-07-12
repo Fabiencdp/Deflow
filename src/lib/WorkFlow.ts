@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import { uuid } from 'short-uuid';
-import Step, { CreateStep, JSONStep } from './Step';
+import Step, { CreateStep, CreateStepPartial, JSONStep } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import DeFlow from './index';
 
@@ -24,7 +24,7 @@ export default class WorkFlow {
     this.list = json.queueId;
   }
 
-  static async create(name: string, workFlowSteps: Omit<CreateStep, 'workFlowId' | 'index'>[]) {
+  static async create(name: string, steps: CreateStepPartial[]) {
     const id = uuid();
     const queueId = [id, 'steps'].join(':');
 
@@ -32,9 +32,9 @@ export default class WorkFlow {
 
     await workFlowInstance.store();
 
-    await workFlowSteps.reduce(async (prev, data, index) => {
+    await steps.reduce(async (prev, data, index) => {
       await prev;
-      await Step.create({ ...data, index, workFlowId: workFlowInstance.id });
+      await Step.create({ ...data, index, workflowId: workFlowInstance.id });
     }, Promise.resolve());
 
     return workFlowInstance;
@@ -52,35 +52,38 @@ export default class WorkFlow {
 
   public async run() {
     console.log('run');
-    await WorkFlow.nextStep(this.id);
-    await PubSubManager.publish({ action: Action.NextStep, data: { workFlowId: this.id } });
+    // await WorkFlow.nextStep(this.id);
+    await PubSubManager.publish({ action: Action.NextStep, data: { workflowId: this.id } });
   }
 
-  public static async nextStep(workFlowId: string) {
+  public static async nextStep(workflowId: string) {
     const deFlow = DeFlow.getInstance();
 
-    const workflow = await WorkFlow.getById(workFlowId);
+    const workflow = await WorkFlow.getById(workflowId);
 
     // Get min
-    deFlow.client.zrange(workflow.list, 0, 1, async (err, reply) => {
+    deFlow.client.zrange(workflow.list, 0, 0, async (err, reply) => {
       const [json] = reply;
       if (!json) {
         console.log('NO MORE STEP TO DO!');
         // this._clean(workflowId);
         return;
       }
-      const jsonStep = JSON.parse(json) as JSONStep;
-      const step = new Step(jsonStep);
 
-      await step.start();
+      const jsonStep = JSON.parse(json) as JSONStep;
+
+      await PubSubManager.publish({
+        action: Action.NextTask,
+        data: { workflowId: jsonStep.workflowId, stepKey: jsonStep.key },
+      });
     });
   }
 
-  public static async getById(workFlowId: string): Promise<WorkFlow> {
+  public static async getById(workflowId: string): Promise<WorkFlow> {
     const deFlow = DeFlow.getInstance();
 
     return new Promise((resolve, reject) => {
-      deFlow.client.get(workFlowId, (err, res) => {
+      deFlow.client.get(workflowId, (err, res) => {
         if (err || !res) {
           return reject(err?.message || 'Unknown error');
         }

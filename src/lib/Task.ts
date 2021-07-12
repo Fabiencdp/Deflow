@@ -6,7 +6,7 @@ const debug = Debug('Task');
 
 export type CreateTask = {
   data: any[];
-  workFlowId: string;
+  workflowId: string;
   stepId: string;
 };
 
@@ -14,7 +14,7 @@ export type TaskJSON = {
   id: string;
   data: any;
 
-  workFlowId: string;
+  workflowId: string;
   stepId: string;
 };
 
@@ -22,7 +22,7 @@ export default class Task {
   public id: string;
   public data: any;
 
-  public workFlowId: string;
+  public workflowId: string;
   public stepId: string;
 
   public result: any; // TODO
@@ -34,7 +34,7 @@ export default class Task {
     this.data = json.data;
 
     this.stepId = json.stepId;
-    this.workFlowId = json.workFlowId;
+    this.workflowId = json.workflowId;
   }
 
   static async create(data: CreateTask) {
@@ -42,7 +42,7 @@ export default class Task {
       id: uuid(),
       data: data.data,
       stepId: data.stepId,
-      workFlowId: data.workFlowId,
+      workflowId: data.workflowId,
     });
 
     await taskInstance.store();
@@ -53,7 +53,7 @@ export default class Task {
   private store(): Promise<boolean> {
     const deFlow = DeFlow.getInstance();
 
-    const id = [this.workFlowId, this.stepId, 'pending'].join(':');
+    const id = [this.workflowId, this.stepId, 'pending'].join(':');
     const data = JSON.stringify(this);
 
     return new Promise((resolve) => {
@@ -68,7 +68,7 @@ export default class Task {
       id: this.id,
       data: this.data,
       stepId: this.stepId,
-      workFlowId: this.workFlowId,
+      workflowId: this.workflowId,
     };
   }
 }

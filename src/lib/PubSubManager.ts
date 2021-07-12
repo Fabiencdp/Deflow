@@ -14,14 +14,14 @@ type Signal = {
 type SignalNextStep = Signal & {
   action: Action.NextStep;
   data: {
-    workFlowId: string;
+    workflowId: string;
   };
 };
 
 type SignalNextTask = Signal & {
   action: Action.NextTask;
   data: {
-    workFlowId: string;
+    workflowId: string;
     stepKey: string;
   };
 };
@@ -36,10 +36,6 @@ export default class PubSubManager {
 
     deFlow.subscriber.on('pmessage', (pattern, channel, json) => {
       const signal: Signals = JSON.parse(json);
-
-      if (signal.publisherId === deFlow.id) {
-        return;
-      }
 
       switch (signal.action) {
         case Action.NextStep:
@@ -67,6 +63,6 @@ export default class PubSubManager {
   }
 
   static async nextStep(signal: SignalNextStep) {
-    return WorkFlow.nextStep(signal.data.workFlowId);
+    return WorkFlow.nextStep(signal.data.workflowId);
   }
 }
