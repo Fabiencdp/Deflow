@@ -10,6 +10,8 @@ setTimeout(() => {
   if (!process.env.LISTENER) {
     console.log('Create example workflow');
     createSimpleWorkflow();
+  } else {
+    console.log('Listen');
   }
 }, 2000);
 
@@ -20,25 +22,13 @@ async function createSimpleWorkflow(): Promise<void> {
   const steps = [
     {
       name: 'STEP 1',
+      handler: path.resolve(__dirname, './task/step-1'),
       tasks: [1, 2, 3, 4, 5],
-      handler: path.resolve(__dirname, './task/delay'),
     },
-    // {
-    //   name: 'STEP 2',
-    //   tasks: [10, 20, 30, 40, 50],
-    //   handler: path.resolve(__dirname, './task/delay'),
-    // },
-    // {
-    //   name: 'STEP 3',
-    //   tasks: [100, 200, 300],
-    //   handler: path.resolve(__dirname, './task/delay'),
-    // },
-    // {
-    //   name: 'ADD TASK FROM CLASS 2',
-    //   tasks: [1],
-    //   handler: path.resolve(__dirname, './task/class'),
-    //   handlerFn: 'processTask',
-    // },
+    {
+      name: 'STEP 2',
+      handler: path.resolve(__dirname, './task/step-2'),
+    },
   ];
 
   const wfl = await WorkFlow.create('simple', steps);

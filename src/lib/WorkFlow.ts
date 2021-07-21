@@ -1,10 +1,10 @@
 import Debug from 'debug';
 import { uuid } from 'short-uuid';
-import Step, { CreateStep, CreateStepPartial, JSONStep } from './Step';
+import Step, { CreateStepPartial, JSONStep } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import DeFlow from './index';
 
-const debug = Debug('WorkFlow');
+const debug = Debug('deflow:workflow');
 
 export type WorkFlowJSON = {
   id: string;
@@ -30,7 +30,7 @@ export default class WorkFlow {
 
     const workFlowInstance = new WorkFlow({ id, name, queueId });
 
-    await workFlowInstance.store();
+    await workFlowInstance.#store();
 
     await steps.reduce(async (prev, data, index) => {
       await prev;
@@ -40,7 +40,59 @@ export default class WorkFlow {
     return workFlowInstance;
   }
 
-  private store(): Promise<boolean> {
+  public static async nextStep(workflowId: string) {
+    debug('nextStep');
+
+    const deFlow = DeFlow.getInstance();
+    const workflow = await WorkFlow.getById(workflowId);
+    if (!workflow) {
+      debug('workflow does not exist');
+      return;
+    }
+
+    // Get min
+    deFlow.client.zrange(workflow.list, 0, 0, (err, reply) => {
+      const [json] = reply;
+      if (!json) {
+        debug('empty workflow list');
+        return workflow.#clean();
+        return;
+      }
+
+      const jsonStep = JSON.parse(json) as JSONStep;
+
+      return PubSubManager.publish({
+        action: Action.NextTask,
+        data: { workflowId: jsonStep.workflowId, stepKey: jsonStep.key },
+      });
+    });
+  }
+
+  public static async getById(workflowId: string): Promise<WorkFlow | null> {
+    const deFlow = DeFlow.getInstance();
+
+    return new Promise((resolve, reject) => {
+      deFlow.client.get(workflowId, (err, res) => {
+        if (err) {
+          return reject(err?.message || 'Workflow Unknown error');
+        }
+
+        if (!res) {
+          return resolve(null);
+        }
+
+        const workflowJson: WorkFlowJSON = JSON.parse(res);
+        const workflow = new WorkFlow(workflowJson);
+        return resolve(workflow);
+      });
+    });
+  }
+
+  public async run() {
+    await PubSubManager.publish({ action: Action.NextStep, data: { workflowId: this.id } });
+  }
+
+  async #store(): Promise<boolean> {
     const deFlow = DeFlow.getInstance();
     const data = JSON.stringify(this);
     return new Promise((resolve) => {
@@ -50,46 +102,31 @@ export default class WorkFlow {
     });
   }
 
-  public async run() {
-    console.log('run');
-    // await WorkFlow.nextStep(this.id);
-    await PubSubManager.publish({ action: Action.NextStep, data: { workflowId: this.id } });
-  }
+  async #clean() {
+    debug('clean');
 
-  public static async nextStep(workflowId: string) {
     const deFlow = DeFlow.getInstance();
+    const pattern = [this.id, '*'].join(':');
 
-    const workflow = await WorkFlow.getById(workflowId);
-
-    // Get min
-    deFlow.client.zrange(workflow.list, 0, 0, async (err, reply) => {
-      const [json] = reply;
-      if (!json) {
-        console.log('NO MORE STEP TO DO!');
-        // this._clean(workflowId);
-        return;
-      }
-
-      const jsonStep = JSON.parse(json) as JSONStep;
-
-      await PubSubManager.publish({
-        action: Action.NextTask,
-        data: { workflowId: jsonStep.workflowId, stepKey: jsonStep.key },
-      });
-    });
-  }
-
-  public static async getById(workflowId: string): Promise<WorkFlow> {
-    const deFlow = DeFlow.getInstance();
+    await deFlow.client.del(this.id);
 
     return new Promise((resolve, reject) => {
-      deFlow.client.get(workflowId, (err, res) => {
-        if (err || !res) {
-          return reject(err?.message || 'Unknown error');
+      deFlow.client.keys(pattern, (err, keys) => {
+        if (err) {
+          return reject(err);
         }
-        const workflowJson: WorkFlowJSON = JSON.parse(res);
-        const workflow = new WorkFlow(workflowJson);
-        return resolve(workflow);
+
+        if (keys.length) {
+          // There is a bit of a delay between get/delete but it is unavoidable
+          deFlow.client.del(keys, (err1, reply) => {
+            if (err) {
+              return reject(err);
+            }
+            return resolve(reply);
+          });
+        } else {
+          return resolve(0);
+        }
       });
     });
   }

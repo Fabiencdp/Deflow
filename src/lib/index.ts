@@ -29,8 +29,6 @@ export default class DeFlow {
     this.client = Client.createRedisClient(options);
     this.subscriber = Client.createRedisClient(options);
     this.publisher = Client.createRedisClient(options);
-    // TODO: remove
-    this.client.flushall();
   }
 
   public static register(options: DeFlowOptions) {

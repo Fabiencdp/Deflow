@@ -6,58 +6,53 @@ const debug = Debug('Task');
 
 export type CreateTask = {
   data: any[];
-  workflowId: string;
-  stepId: string;
+  queue: string;
 };
 
 export type TaskJSON = {
   id: string;
   data: any;
-
-  workflowId: string;
-  stepId: string;
+  failedCount: number;
+  error?: string;
+  result?: any; // TODO: type
 };
 
 export default class Task {
   public id: string;
   public data: any;
 
-  public workflowId: string;
-  public stepId: string;
+  public failedCount: number;
 
-  public result: any; // TODO
-  public failedCount = 0;
   public error?: string;
+  public result?: any; // TODO: type
 
   constructor(json: TaskJSON) {
     this.id = json.id;
     this.data = json.data;
 
-    this.stepId = json.stepId;
-    this.workflowId = json.workflowId;
+    this.failedCount = json.failedCount;
+    this.error = json.error;
+    this.result = json.result;
   }
 
-  static async create(data: CreateTask) {
+  static async create(data: CreateTask): Promise<Task> {
     const taskInstance = new Task({
       id: uuid(),
       data: data.data,
-      stepId: data.stepId,
-      workflowId: data.workflowId,
+      failedCount: 0,
     });
 
-    await taskInstance.store();
+    await taskInstance.#store(data.queue);
 
     return taskInstance;
   }
 
-  private store(): Promise<boolean> {
+  #store(queue: string): Promise<boolean> {
     const deFlow = DeFlow.getInstance();
 
-    const id = [this.workflowId, this.stepId, 'pending'].join(':');
     const data = JSON.stringify(this);
-
     return new Promise((resolve) => {
-      deFlow.client.rpush(id, data, (err, status) => {
+      deFlow.client.rpush(queue, data, (err, status) => {
         return resolve(true);
       });
     });
@@ -67,8 +62,9 @@ export default class Task {
     return {
       id: this.id,
       data: this.data,
-      stepId: this.stepId,
-      workflowId: this.workflowId,
+      failedCount: this.failedCount,
+      error: this.error,
+      result: this.result,
     };
   }
 }

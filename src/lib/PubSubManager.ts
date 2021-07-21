@@ -6,7 +6,6 @@ export enum Action {
   NextStep,
   NextTask,
 }
-
 type Signal = {
   publisherId: string;
 };

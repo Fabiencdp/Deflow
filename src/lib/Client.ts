@@ -2,7 +2,7 @@ import Debug from 'debug';
 
 import redis, { RedisClient } from 'redis';
 
-const debug = Debug('deflow');
+const debug = Debug('deflow:client');
 
 import { DeFlowOptions } from './';
 

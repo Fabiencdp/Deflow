@@ -3,28 +3,27 @@ import { uuid } from 'short-uuid';
 import Task, { TaskJSON } from './Task';
 import DeFlow from './index';
 import PubSubManager, { Action } from './PubSubManager';
+import { throws } from 'assert';
 
 const debug = Debug('Step');
 
 type TaskData = any;
 
-type HandlerFn = 'beforeAll' | 'afterAll' | 'afterEach';
+type HandlerFn = 'handler' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
 
-type HandlerModule = {
+type HandlerModule = Partial<StepOptions> & {
   beforeAll?: (step: Step) => Promise<any>;
   handler: (task: Task, step: Step) => Promise<any>;
+  onHandlerError?: (task: Task, error: Error) => Promise<any>;
   afterEach?: (task: Task, step: Step) => Promise<any>;
   afterAll?: (step: Step) => Promise<any>;
 };
 
 export type CreateStepPartial = {
   name: string;
-  tasks: TaskData[];
+  tasks?: TaskData[];
   handler: string;
-  options?: {
-    taskConcurrency?: number;
-    taskMaxFailCount?: number;
-  };
+  options?: Partial<StepOptions>;
 };
 
 export type CreateStep = CreateStepPartial & {
@@ -52,11 +51,13 @@ export type JSONStep = {
 };
 
 export type StepOptions = {
+  taskTimeout: number;
   taskMaxFailCount: number;
   taskConcurrency: number;
 };
 
 const defaultStepOptions: StepOptions = {
+  taskTimeout: 0,
   taskConcurrency: 1,
   taskMaxFailCount: 1,
 };
@@ -75,6 +76,8 @@ export default class Step {
   public workflowId: string;
   public key: string;
   public parentKey?: string;
+
+  #deflow = DeFlow.getInstance();
 
   /**
    * @param json
@@ -104,40 +107,69 @@ export default class Step {
 
     const { options: opts } = data;
 
-    const options = {
+    const options: StepOptions = {
       taskConcurrency: opts?.taskConcurrency || 1,
       taskMaxFailCount: opts?.taskMaxFailCount || 1,
+      taskTimeout: opts?.taskTimeout || 0,
     };
+
+    const key = [data.workflowId, id].join(':');
+
+    // Create step handler
+    const module = await Step.getModule(data.handler);
+
+    if (!data.handlerFn) {
+      if (typeof module.beforeAll === 'function') {
+        await Step.create({
+          ...data,
+          name: [this.name, 'beforeAll'].join(':'),
+          index: data.index - 0.001,
+          handlerFn: 'beforeAll',
+          parentKey: key,
+          tasks: [null],
+        });
+      }
+
+      if (typeof module.afterAll === 'function') {
+        await Step.create({
+          ...data,
+          name: [this.name, 'afterAll'].join(':'),
+          index: data.index + 0.001,
+          handlerFn: 'afterAll',
+          parentKey: key,
+          tasks: [null],
+        });
+      }
+
+      data.handlerFn = 'handler';
+    }
+
+    if (module.taskTimeout) {
+      options.taskTimeout = module.taskTimeout;
+    }
+
+    if (module.taskMaxFailCount) {
+      options.taskMaxFailCount = module.taskMaxFailCount;
+    }
 
     const stepInstance = new Step({
       id,
+      key,
       name: data.name,
       index: data.index,
       handler: data.handler,
       handlerFn: data.handlerFn,
       workflowId: data.workflowId,
-      key: [data.workflowId, id].join(':'),
       parentKey: data.parentKey,
-      taskCount: data.tasks.length,
+      taskCount: 0,
       options,
     });
 
-    await stepInstance._store();
+    await stepInstance.#store();
 
-    // Create step handler
-    if (!data.handlerFn) {
-      // await stepInstance._createStepHandlers();
+    if (data.tasks) {
+      await stepInstance.addTasks(data.tasks);
     }
-
-    // Create tasks
-    data.tasks.reduce(async (prev, taskData) => {
-      await prev;
-      await Task.create({
-        stepId: stepInstance.id,
-        workflowId: stepInstance.workflowId,
-        data: taskData,
-      });
-    }, Promise.resolve());
 
     return stepInstance;
   }
@@ -182,18 +214,41 @@ export default class Step {
   }
 
   /**
+   * Add task to the step handler
+   */
+  public async addTasks(tasks: TaskData[]): Promise<void> {
+    let count = this.taskCount;
+    await tasks.reduce(async (prev, taskData) => {
+      await prev;
+      count += 1;
+      return Task.create({ queue: this.#pendingQueue, data: taskData });
+    }, Promise.resolve());
+
+    this.taskCount = count;
+    return this.#update();
+  }
+
+  /**
+   *
+   */
+  public async getResults(): Promise<Task[]> {
+    return this.#getTaskRange(0, 100);
+  }
+
+  /**
    * Get current progress value
    */
   public async getProgress(): Promise<{ percent: string; total: number; done: number }> {
-    const deFlow = DeFlow.getInstance();
-
     return new Promise((resolve) => {
-      deFlow.client.llen(this.doneKey, (err, reply) => {
+      this.#deflow.client.llen(this.#doneQueue, (err, reply) => {
         if (err) {
           return resolve({ done: 0, total: 0, percent: '' });
         }
 
-        const percent = ((reply / this.taskCount) * 100).toFixed(2);
+        let percent = '0';
+        if (this.taskCount) {
+          percent = ((reply / this.taskCount) * 100).toFixed(2);
+        }
 
         return resolve({
           done: reply,
@@ -208,35 +263,38 @@ export default class Step {
    * Run next task recursively
    */
   public async runNextTask(): Promise<any> {
-    const deFlow = DeFlow.getInstance();
-    const task = await this._getNextTask();
-
+    const task = await this.#getNextTask();
     if (!task) {
-      return this._onTasksDone();
+      return this.#onTasksDone();
     }
 
     // Run the task
-    let dest = 'done';
+    let dest = this.#doneQueue;
     try {
-      task.result = await this._runTaskHandler(task);
+      task.result = await this.#runTaskHandler(task);
     } catch (e) {
-      task.error = e.message;
+      const error = typeof e === 'string' ? new Error(e) : e.message;
+      task.error = error;
       task.failedCount = task.failedCount + 1;
 
       // Retry failed task
       if (task.failedCount < this.options.taskMaxFailCount) {
-        dest = 'pending';
+        dest = this.#pendingQueue;
       }
+
+      await this.#runOnHandlerError(task, error);
     }
 
     // Push task to done/pending list
     const data = JSON.stringify(task);
-    await deFlow.client.lpush([this.key, dest].join(':'), data);
+    await this.#deflow.client.lpush(dest, data);
 
     // Run after each method
-    const module = await this._getModule();
-    if (module && typeof module.afterEach === 'function') {
-      await module.afterEach(task, this);
+    if (this.handlerFn === 'handler') {
+      const module = await Step.getModule(this.handler);
+      if (module && typeof module.afterEach === 'function') {
+        await module.afterEach(task, this);
+      }
     }
 
     return this.runNextTask();
@@ -245,8 +303,8 @@ export default class Step {
   /**
    * @private
    */
-  private async _getModule(): Promise<HandlerModule> {
-    const module: HandlerModule = await import(this.handler).then((m) => m.default);
+  static async getModule(path: string): Promise<HandlerModule> {
+    const module: HandlerModule = await import(path).then((m) => m.default);
     if (!module || !module.handler) {
       throw new Error('Module is not valid');
     }
@@ -256,63 +314,72 @@ export default class Step {
   /**
    * @private
    */
-  private async _runTaskHandler(task: Task) {
-    const module = await this._getModule();
-    if (!module) {
-      throw new Error('Invalid module');
-    }
+  async #runTaskHandler(task: Task): Promise<any> {
+    return new Promise(async (resolve, reject) => {
+      let handler: Promise<any>;
 
-    if (this.handlerFn === 'afterAll' && typeof module.afterAll === 'function') {
-      return module.afterAll(this);
-    } else if (this.handlerFn === 'beforeAll' && typeof module.beforeAll === 'function') {
-      return module.beforeAll(this);
-    } else {
-      return module.handler(task, this);
+      const module = await Step.getModule(this.handler);
+      if (!module) {
+        return reject('Invalid module');
+      }
+
+      const promises = [];
+
+      // Set a timeout
+      let timeout: NodeJS.Timeout;
+      if (this.options.taskTimeout > 0) {
+        promises.push(this.#runTaskHandlerTimeout());
+      }
+
+      // Get the parent step for specific handler
+      let step;
+      if (this.parentKey) {
+        step = await Step.getByKey(this.parentKey);
+      } else {
+        step = this;
+      }
+
+      // Get handler fn
+      if (this.handlerFn === 'afterAll' && typeof module.afterAll === 'function') {
+        handler = module.afterAll(step);
+      } else if (this.handlerFn === 'beforeAll' && typeof module.beforeAll === 'function') {
+        handler = module.beforeAll(step);
+      } else {
+        handler = module.handler(task, step);
+      }
+
+      promises.push(handler);
+
+      Promise.race(promises)
+        .then((res) => resolve(res))
+        .catch((err) => reject(err))
+        .finally(() => {
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+        });
+    });
+  }
+
+  async #runOnHandlerError(task: Task, error: Error) {
+    const module = await Step.getModule(this.handler);
+    if (typeof module.onHandlerError === 'function') {
+      module.onHandlerError(task, error);
     }
   }
 
-  /**
-   * @private
-   */
-  private async _createStepHandlers() {
-    const module = await this._getModule();
-
-    if (typeof module.beforeAll === 'function' && !this.handlerFn) {
-      console.log('add before');
-      await this._addBefore({
-        ...this,
-        tasks: [null],
-        handlerFn: 'beforeAll',
-        name: [this.name, 'beforeAll'].join(':'),
-      });
-    }
-
-    if (typeof module.afterAll === 'function' && !this.handlerFn) {
-      await this.addAfter({
-        ...this,
-        tasks: [null],
-        handlerFn: 'afterAll',
-        name: [this.name, 'afterAll'].join(':'),
-      });
-    }
-  }
-
-  /**
-   * @private
-   */
-  private async _addBefore(stepData: CreateStepPartial) {
-    return Step.create({
-      ...stepData,
-      index: this.index - 0.01,
-      workflowId: this.workflowId,
-      parentKey: this.key,
+  async #runTaskHandlerTimeout() {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        return reject(new Error('Task handler timeout'));
+      }, this.options.taskTimeout);
     });
   }
 
   /**
    * @private
    */
-  private async _store(): Promise<boolean[]> {
+  async #store(): Promise<boolean[]> {
     const deFlow = DeFlow.getInstance();
 
     const list = [this.workflowId, 'steps'].join(':');
@@ -337,49 +404,44 @@ export default class Step {
   /**
    * @private
    */
-  private async _onTasksDone() {
-    const deFlow = DeFlow.getInstance();
-
+  async #onTasksDone() {
     const list = [this.workflowId, 'steps'].join(':');
     const listDone = [this.workflowId, 'steps-done'].join(':');
 
-    deFlow.client.zrange(list, 0, 0, async (err, reply) => {
-      const [json] = reply;
-      if (!json) {
-        return;
+    this.#deflow.client.zrangebyscore(list, this.index, this.index, (err, reply) => {
+      if (err || reply.length === 0) {
+        throw new Error(`Step index ${this.index} does not exist in store`);
       }
 
-      const jsonStep = JSON.parse(json) as JSONStep;
-      if (json && jsonStep.id === this.id) {
-        // Check if there is remaining job
-        deFlow.client.llen([this.key, 'done'].join(':'), async (err, reply) => {
-          if (reply < this.taskCount) {
-            // There is more task to do
-            return;
-          }
+      const jsons = reply.map((r) => JSON.parse(r));
+      const jsonStep: JSONStep = jsons.find((j) => j.id === this.id);
 
-          // Pop current step from the list
-          await deFlow.client.sendCommand('ZPOPMIN', [list]);
-          await deFlow.client.zadd(listDone, this.index, JSON.stringify(this));
+      if (!jsonStep) {
+        throw new Error(`Step id ${this.id} does not exist in store`);
+      }
+
+      this.#deflow.client.llen(this.#doneQueue, async (err, reply) => {
+        if (reply === this.taskCount) {
+          await this.#deflow.client.zremrangebyscore(list, this.index, this.index, () => {
+            this.#deflow.client.zadd(listDone, this.index, JSON.stringify(this));
+          });
 
           // Signal next step
           await PubSubManager.publish({
             action: Action.NextStep,
             data: { workflowId: this.workflowId },
           });
-        });
-      }
+        }
+      });
     });
   }
 
   /**
    * @private
    */
-  private _getNextTask(): Promise<Task | null> {
-    const deFlow = DeFlow.getInstance();
-
+  #getNextTask(): Promise<Task | null> {
     return new Promise((resolve, reject) => {
-      deFlow.client.lpop([this.key, 'pending'].join(':'), (err, res) => {
+      this.#deflow.client.lpop(this.#pendingQueue, (err, res) => {
         if (!res) {
           return resolve(null);
         }
@@ -392,11 +454,48 @@ export default class Step {
     });
   }
 
-  private get pendingKey() {
+  /**
+   * Get paginated results from done queue
+   * @param start
+   * @param stop
+   * @param acc
+   */
+  async #getTaskRange(start: number, stop: number, acc: Task[] = []): Promise<Task[]> {
+    return new Promise((resolve, reject) => {
+      this.#deflow.client.lrange(this.#doneQueue, start, stop, (err, reply) => {
+        if (err) {
+          return reject(err);
+        }
+
+        if (reply && reply.length > 0) {
+          const items: Task[] = reply.reduce((a: Task[], str) => {
+            a.push(JSON.parse(str) as Task);
+            return a;
+          }, []);
+
+          acc = acc.concat(items);
+          return resolve(this.#getTaskRange(stop, stop + stop, acc));
+        } else {
+          return resolve(acc);
+        }
+      });
+    });
+  }
+
+  /**
+   * Update current step in the redis store
+   */
+  async #update(): Promise<void> {
+    const id = [this.workflowId, this.id].join(':');
+    const data = JSON.stringify(this);
+    await this.#deflow.client.set(id, data);
+  }
+
+  get #pendingQueue() {
     return [this.key, 'pending'].join(':');
   }
 
-  private get doneKey() {
+  get #doneQueue() {
     return [this.key, 'done'].join(':');
   }
 
