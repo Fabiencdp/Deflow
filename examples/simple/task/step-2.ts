@@ -46,7 +46,7 @@ export default {
     console.log(errors);
 
     await step.addAfter({
-      name: 'cool',
+      name: 'STEP 2.2',
       handler: path.join(__dirname, './step-2.2'),
     });
   },

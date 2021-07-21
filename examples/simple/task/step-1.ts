@@ -1,6 +1,5 @@
 import Task from '../../../src/lib/Task';
 import Step from '../../../src/lib/Step';
-import * as path from 'path';
 
 export default {
   async handler(task: Task) {

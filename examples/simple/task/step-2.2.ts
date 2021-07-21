@@ -1,6 +1,5 @@
 import Task from '../../../src/lib/Task';
 import Step from '../../../src/lib/Step';
-import path from 'path';
 
 export default {
   taskTimeout: 4000,
@@ -18,6 +17,6 @@ export default {
   },
 
   async afterAll(step: Step) {
-    console.log('Step2.2: afterAll');
+    console.log('Step2.2: afterAll', 'Everything done');
   },
 };
