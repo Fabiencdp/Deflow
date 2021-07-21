@@ -221,7 +221,7 @@ export default class Step {
     await tasks.reduce(async (prev, taskData) => {
       await prev;
       count += 1;
-      return Task.create({ queue: this.#pendingQueue, data: taskData });
+      return Task.create({ queue: this.#taskPendingQueue, data: taskData });
     }, Promise.resolve());
 
     this.taskCount = count;
@@ -240,7 +240,7 @@ export default class Step {
    */
   public async getProgress(): Promise<{ percent: string; total: number; done: number }> {
     return new Promise((resolve) => {
-      this.#deflow.client.llen(this.#doneQueue, (err, reply) => {
+      this.#deflow.client.llen(this.#taskDoneQueue, (err, reply) => {
         if (err) {
           return resolve({ done: 0, total: 0, percent: '' });
         }
@@ -269,7 +269,7 @@ export default class Step {
     }
 
     // Run the task
-    let dest = this.#doneQueue;
+    let dest = this.#taskDoneQueue;
     try {
       task.result = await this.#runTaskHandler(task);
     } catch (e) {
@@ -279,7 +279,7 @@ export default class Step {
 
       // Retry failed task
       if (task.failedCount < this.options.taskMaxFailCount) {
-        dest = this.#pendingQueue;
+        dest = this.#taskPendingQueue;
       }
 
       await this.#runOnHandlerError(task, error);
@@ -369,44 +369,18 @@ export default class Step {
   }
 
   async #runTaskHandlerTimeout() {
+    const { taskTimeout } = this.options;
     return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        return reject(new Error('Task handler timeout'));
-      }, this.options.taskTimeout);
+      setTimeout(() => reject(new Error('Task handler timeout')), taskTimeout);
     });
-  }
-
-  /**
-   * @private
-   */
-  async #store(): Promise<boolean[]> {
-    const deFlow = DeFlow.getInstance();
-
-    const list = [this.workflowId, 'steps'].join(':');
-    const id = [this.workflowId, this.id].join(':');
-    const data = JSON.stringify(this);
-
-    const stepData = new Promise<boolean>((resolve) => {
-      deFlow.client.set(id, data, (err, status) => {
-        return resolve(true);
-      });
-    });
-
-    const queueData = new Promise<boolean>((resolve) => {
-      deFlow.client.zadd(list, this.index, data, (err, status) => {
-        return resolve(true);
-      });
-    });
-
-    return Promise.all([stepData, queueData]);
   }
 
   /**
    * @private
    */
   async #onTasksDone() {
-    const list = [this.workflowId, 'steps'].join(':');
-    const listDone = [this.workflowId, 'steps-done'].join(':');
+    const list = this.#list;
+    const listDone = this.#doneList;
 
     this.#deflow.client.zrangebyscore(list, this.index, this.index, (err, reply) => {
       if (err || reply.length === 0) {
@@ -420,10 +394,10 @@ export default class Step {
         throw new Error(`Step id ${this.id} does not exist in store`);
       }
 
-      this.#deflow.client.llen(this.#doneQueue, async (err, reply) => {
+      this.#deflow.client.llen(this.#taskDoneQueue, async (err, reply) => {
         if (reply === this.taskCount) {
           await this.#deflow.client.zremrangebyscore(list, this.index, this.index, () => {
-            this.#deflow.client.zadd(listDone, this.index, JSON.stringify(this));
+            this.#deflow.client.zadd(listDone, this.index, JSON.stringify(jsonStep));
           });
 
           // Signal next step
@@ -441,7 +415,7 @@ export default class Step {
    */
   #getNextTask(): Promise<Task | null> {
     return new Promise((resolve, reject) => {
-      this.#deflow.client.lpop(this.#pendingQueue, (err, res) => {
+      this.#deflow.client.lpop(this.#taskPendingQueue, (err, res) => {
         if (!res) {
           return resolve(null);
         }
@@ -462,7 +436,7 @@ export default class Step {
    */
   async #getTaskRange(start: number, stop: number, acc: Task[] = []): Promise<Task[]> {
     return new Promise((resolve, reject) => {
-      this.#deflow.client.lrange(this.#doneQueue, start, stop, (err, reply) => {
+      this.#deflow.client.lrange(this.#taskDoneQueue, start, stop, (err, reply) => {
         if (err) {
           return reject(err);
         }
@@ -483,6 +457,32 @@ export default class Step {
   }
 
   /**
+   * @private
+   */
+  async #store(): Promise<boolean[]> {
+    const deFlow = DeFlow.getInstance();
+
+    const list = [this.workflowId, 'steps'].join(':');
+    const id = [this.workflowId, this.id].join(':');
+
+    const stepData = new Promise<boolean>((resolve) => {
+      const data = JSON.stringify(this);
+      deFlow.client.set(id, data, (err, status) => {
+        return resolve(true);
+      });
+    });
+
+    const queueData = new Promise<boolean>((resolve) => {
+      const data = JSON.stringify({ id: this.id, key: this.key, parentKey: this.parentKey });
+      deFlow.client.zadd(list, this.index, data, (err, status) => {
+        return resolve(true);
+      });
+    });
+
+    return Promise.all([queueData, stepData]);
+  }
+
+  /**
    * Update current step in the redis store
    */
   async #update(): Promise<void> {
@@ -491,12 +491,20 @@ export default class Step {
     await this.#deflow.client.set(id, data);
   }
 
-  get #pendingQueue() {
+  get #taskPendingQueue() {
     return [this.key, 'pending'].join(':');
   }
 
-  get #doneQueue() {
+  get #taskDoneQueue() {
     return [this.key, 'done'].join(':');
+  }
+
+  get #list() {
+    return [this.workflowId, 'steps'].join(':');
+  }
+
+  get #doneList() {
+    return [this.workflowId, 'steps-done'].join(':');
   }
 
   toJSON(): JSONStep {
