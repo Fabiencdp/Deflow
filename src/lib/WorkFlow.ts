@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import { uuid } from 'short-uuid';
-import Step, { CreateStepPartial, JSONStep } from './Step';
+import Step, { AddStep, JSONStepListItem } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import DeFlow from './index';
 
@@ -15,7 +15,6 @@ export type WorkFlowJSON = {
 export default class WorkFlow {
   public id: string;
   public name: string;
-
   public list: string;
 
   constructor(json: WorkFlowJSON) {
@@ -24,7 +23,12 @@ export default class WorkFlow {
     this.list = json.queueId;
   }
 
-  static async create(name: string, steps: CreateStepPartial[]) {
+  /**
+   * Create and save new workflow
+   * @param name
+   * @param steps
+   */
+  static async create(name: string, steps: AddStep[]) {
     const id = uuid();
     const queueId = [id, 'steps'].join(':');
 
@@ -32,43 +36,35 @@ export default class WorkFlow {
 
     await workFlowInstance.#store();
 
-    await steps.reduce(async (prev, data, index) => {
+    await steps.reverse().reduce(async (prev, data) => {
       await prev;
-      await Step.create({ ...data, index, workflowId: workFlowInstance.id });
+      await Step.create({ ...data, index: new Date().getTime(), workflowId: workFlowInstance.id });
     }, Promise.resolve());
 
     return workFlowInstance;
   }
 
-  public static async nextStep(workflowId: string) {
-    debug('nextStep');
+  /**
+   * Run a step by key
+   * @param key
+   */
+  public static async runStep(key: string) {
+    debug(`runStep ${key}`);
 
-    const deFlow = DeFlow.getInstance();
-    const workflow = await WorkFlow.getById(workflowId);
-    if (!workflow) {
-      debug('workflow does not exist');
-      return;
+    const step = await Step.getByKey(key);
+    if (!step) {
+      throw new Error('Does not exist');
     }
-
-    // Get min
-    deFlow.client.zrange(workflow.list, 0, 0, (err, reply) => {
-      const [json] = reply;
-      if (!json) {
-        debug('empty workflow list');
-        return workflow.#clean();
-        return;
-      }
-
-      const jsonStep = JSON.parse(json) as JSONStep;
-
-      return PubSubManager.publish({
-        action: Action.NextTask,
-        data: { workflowId: jsonStep.workflowId, stepKey: jsonStep.key },
-      });
-    });
+    await step.runNextTask();
   }
 
+  /**
+   * Get workflow by id
+   * @param workflowId
+   */
   public static async getById(workflowId: string): Promise<WorkFlow | null> {
+    debug(`getById ${workflowId}`);
+
     const deFlow = DeFlow.getInstance();
 
     return new Promise((resolve, reject) => {
@@ -82,27 +78,93 @@ export default class WorkFlow {
         }
 
         const workflowJson: WorkFlowJSON = JSON.parse(res);
-        const workflow = new WorkFlow(workflowJson);
-        return resolve(workflow);
+        return resolve(new WorkFlow(workflowJson));
       });
     });
   }
 
-  public async run() {
-    await PubSubManager.publish({ action: Action.NextStep, data: { workflowId: this.id } });
+  /**
+   * get next step and run
+   * Publish event
+   * @param workflowId
+   */
+  public static async runNextStep(workflowId: string): Promise<void> {
+    debug(`runNextStep ${workflowId}`);
+
+    const workflow = await WorkFlow.getById(workflowId);
+    if (!workflow) {
+      debug('workflow does not exist');
+      throw new Error('workflow does not exist');
+    }
+
+    const stepKey = await workflow.#getNextStep();
+    if (stepKey) {
+      await PubSubManager.publish({
+        action: Action.NextStep,
+        data: { workflowId, stepKey },
+      });
+      return WorkFlow.runStep(stepKey);
+    } else {
+      return workflow.#clean();
+    }
   }
 
+  /**
+   * Run the workflow
+   */
+  public async run() {
+    return WorkFlow.runNextStep(this.id);
+  }
+
+  /**
+   * Get the next step of the workflow
+   */
+  async #getNextStep(): Promise<string | null> {
+    debug('getNextStep');
+
+    const deFlow = DeFlow.getInstance();
+
+    // Get step with the max score
+    return new Promise<string | null>((resolve, reject) => {
+      deFlow.client.zrevrange(this.list, 0, 0, async (err, reply) => {
+        if (err) {
+          return reject(err);
+        }
+
+        const [json] = reply;
+        if (!json) {
+          debug('empty workflow list');
+          return resolve(null);
+        }
+
+        const jsonStep = JSON.parse(json) as JSONStepListItem;
+        return resolve(jsonStep.key);
+      });
+    });
+  }
+
+  /**
+   * Store in redis
+   */
   async #store(): Promise<boolean> {
+    debug('store');
+
     const deFlow = DeFlow.getInstance();
     const data = JSON.stringify(this);
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       deFlow.client.set(this.id, data, (err, status) => {
-        return resolve(true);
+        if (err) {
+          return reject(err);
+        }
+        return resolve(status === 'OK');
       });
     });
   }
 
-  async #clean() {
+  /**
+   * Remove from redis
+   */
+  async #clean(): Promise<void> {
     debug('clean');
 
     const deFlow = DeFlow.getInstance();
@@ -116,17 +178,17 @@ export default class WorkFlow {
           return reject(err);
         }
 
-        if (keys.length) {
-          // There is a bit of a delay between get/delete but it is unavoidable
-          deFlow.client.del(keys, (err1, reply) => {
-            if (err) {
-              return reject(err);
-            }
-            return resolve(reply);
-          });
-        } else {
-          return resolve(0);
+        if (keys.length === 0) {
+          return resolve();
         }
+
+        // There is a bit of a delay between get/delete but it is unavoidable
+        deFlow.client.del(keys, (err1, reply) => {
+          if (err) {
+            return reject(err);
+          }
+          return resolve();
+        });
       });
     });
   }

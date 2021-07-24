@@ -13,6 +13,7 @@ type Signal = {
 type SignalNextStep = Signal & {
   action: Action.NextStep;
   data: {
+    stepKey: string;
     workflowId: string;
   };
 };
@@ -36,12 +37,14 @@ export default class PubSubManager {
     deFlow.subscriber.on('pmessage', (pattern, channel, json) => {
       const signal: Signals = JSON.parse(json);
 
+      const deFlow = DeFlow.getInstance();
+      if (signal.publisherId === deFlow.id) {
+        return;
+      }
+
       switch (signal.action) {
         case Action.NextStep:
           PubSubManager.nextStep(signal);
-          break;
-        case Action.NextTask:
-          PubSubManager.nextTask(signal);
           break;
       }
     });
@@ -57,11 +60,7 @@ export default class PubSubManager {
     deFlow.publisher.publish(PubSubManager.channel, jsonSignal);
   }
 
-  static async nextTask(signal: SignalNextTask) {
-    return Step.nextTask(signal.data.stepKey);
-  }
-
   static async nextStep(signal: SignalNextStep) {
-    return WorkFlow.nextStep(signal.data.workflowId);
+    return WorkFlow.runStep(signal.data.stepKey);
   }
 }

@@ -18,7 +18,7 @@ async function createSimpleWorkflow(): Promise<void> {
     {
       name: 'STEP 1',
       handler: path.resolve(__dirname, './steps/step-1'),
-      tasks: [1, 2, 3, 4, 5],
+      data: { toCreate: 4 },
     },
     {
       name: 'STEP 2',

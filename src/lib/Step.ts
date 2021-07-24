@@ -1,11 +1,12 @@
 import Debug from 'debug';
 import { uuid } from 'short-uuid';
-import Task, { TaskJSON } from './Task';
-import DeFlow from './index';
-import PubSubManager, { Action } from './PubSubManager';
-import { throws } from 'assert';
 
-const debug = Debug('Step');
+import Task, { TaskJSON } from './Task';
+
+import DeFlow from './index';
+import WorkFlow from './WorkFlow';
+
+const debug = Debug('deflow:step');
 
 type TaskData = any;
 
@@ -19,18 +20,27 @@ type HandlerModule = Partial<StepOptions> & {
   afterAll?: (step: Step) => Promise<any>;
 };
 
-export type CreateStepPartial = {
+export type AddStep = {
   name: string;
   tasks?: TaskData[];
+  data?: any;
+  steps?: AddStep[];
   handler: string;
   options?: Partial<StepOptions>;
 };
 
-export type CreateStep = CreateStepPartial & {
+export type CreateStep = AddStep & {
   workflowId: string;
   handlerFn?: HandlerFn;
   parentKey?: string;
   index: number;
+};
+
+export type JSONStepListItem = {
+  id: string;
+  key: string;
+  name: string;
+  parentKey: string;
 };
 
 export type JSONStep = {
@@ -43,6 +53,7 @@ export type JSONStep = {
   index: number;
   taskCount: number;
 
+  data?: any;
   options: StepOptions;
 
   workflowId: string;
@@ -66,11 +77,12 @@ export default class Step {
   public id: string;
   public name: string;
   public index: number;
+  public data?: any;
 
   public handler: string;
   public handlerFn?: HandlerFn;
-  public taskCount: number;
 
+  public taskCount: number;
   public options = defaultStepOptions;
 
   public workflowId: string;
@@ -86,6 +98,7 @@ export default class Step {
     this.id = json.id;
     this.name = json.name;
     this.index = json.index;
+    this.data = json.data;
 
     this.handler = json.handler;
     this.handlerFn = json.handlerFn;
@@ -104,6 +117,7 @@ export default class Step {
    */
   static async create(data: CreateStep) {
     const id = uuid();
+    const key = [data.workflowId, id].join(':');
 
     const { options: opts } = data;
 
@@ -113,19 +127,17 @@ export default class Step {
       taskTimeout: opts?.taskTimeout || 0,
     };
 
-    const key = [data.workflowId, id].join(':');
-
-    // Create step handler
+    // Create step handlers
     const module = await Step.getModule(data.handler);
-
     if (!data.handlerFn) {
       if (typeof module.beforeAll === 'function') {
         await Step.create({
           ...data,
-          name: [this.name, 'beforeAll'].join(':'),
-          index: data.index - 0.001,
+          name: [data.name, 'beforeAll'].join(':'),
           handlerFn: 'beforeAll',
+          index: data.index + 0.1,
           parentKey: key,
+          steps: undefined,
           tasks: [null],
         });
       }
@@ -133,10 +145,11 @@ export default class Step {
       if (typeof module.afterAll === 'function') {
         await Step.create({
           ...data,
-          name: [this.name, 'afterAll'].join(':'),
-          index: data.index + 0.001,
+          name: [data.name, 'afterAll'].join(':'),
           handlerFn: 'afterAll',
+          index: data.index - 0.1,
           parentKey: key,
+          steps: undefined,
           tasks: [null],
         });
       }
@@ -147,7 +160,9 @@ export default class Step {
     if (module.taskTimeout) {
       options.taskTimeout = module.taskTimeout;
     }
-
+    if (module.taskConcurrency) {
+      options.taskConcurrency = module.taskConcurrency;
+    }
     if (module.taskMaxFailCount) {
       options.taskMaxFailCount = module.taskMaxFailCount;
     }
@@ -155,9 +170,10 @@ export default class Step {
     const stepInstance = new Step({
       id,
       key,
-      name: data.name,
       index: data.index,
+      name: data.name,
       handler: data.handler,
+      data: data.data,
       handlerFn: data.handlerFn,
       workflowId: data.workflowId,
       parentKey: data.parentKey,
@@ -169,6 +185,10 @@ export default class Step {
 
     if (data.tasks) {
       await stepInstance.addTasks(data.tasks);
+    }
+
+    if (data.steps) {
+      await stepInstance.addAfter(data.steps);
     }
 
     return stepInstance;
@@ -196,21 +216,38 @@ export default class Step {
    * run next task
    * @param stepKey
    */
-  static async nextTask(stepKey: string): Promise<any> {
+  static async nextTask(stepKey: string): Promise<void> {
+    debug('nextTask', stepKey);
     const step = await Step.getByKey(stepKey);
     return step.runNextTask();
   }
 
+  public addAfter(stepData: AddStep[]): Promise<Step[]>;
+  public addAfter(stepData: AddStep): Promise<Step>;
+
   /**
    * @public
    */
-  public addAfter(stepData: CreateStepPartial) {
-    return Step.create({
-      ...stepData,
-      index: this.index + 0.01,
-      workflowId: this.workflowId,
-      parentKey: this.key,
-    });
+  public async addAfter(stepData: AddStep | AddStep[]): Promise<Step | Step[]> {
+    let data: AddStep[] = [];
+    if (!Array.isArray(stepData)) {
+      data = [stepData];
+    } else {
+      data = stepData;
+    }
+
+    const results: Step[] = [];
+
+    let created = this as Step;
+    for await (let d of data.reverse()) {
+      created = await created.#addAfter(d);
+      results.push(created);
+    }
+
+    if (results.length === 1) {
+      return results[0];
+    }
+    return results;
   }
 
   /**
@@ -260,12 +297,32 @@ export default class Step {
   }
 
   /**
+   * Run the task
+   * @private
+   */
+  public async runNextTask() {
+    debug('runNextTask', this.name);
+
+    let running = 0;
+    const promises = [];
+    while (running < this.options.taskConcurrency) {
+      running = running + 1;
+      promises.push(this.#getNextTaskAndRun());
+    }
+
+    await Promise.all(promises);
+
+    // Update step when all task are done
+    return this.#onDone();
+  }
+
+  /**
    * Run next task recursively
    */
-  public async runNextTask(): Promise<any> {
+  async #getNextTaskAndRun(): Promise<void> {
     const task = await this.#getNextTask();
     if (!task) {
-      return this.#onTasksDone();
+      return Promise.resolve();
     }
 
     // Run the task
@@ -291,24 +348,41 @@ export default class Step {
 
     // Run after each method
     if (this.handlerFn === 'handler') {
-      const module = await Step.getModule(this.handler);
+      const module = await this.#getModule();
       if (module && typeof module.afterEach === 'function') {
         await module.afterEach(task, this);
       }
     }
 
-    return this.runNextTask();
+    return this.#getNextTaskAndRun();
   }
 
   /**
    * @private
    */
   static async getModule(path: string): Promise<HandlerModule> {
-    const module: HandlerModule = await import(path).then((m) => m.default);
-    if (!module || !module.handler) {
-      throw new Error('Module is not valid');
+    try {
+      const module: HandlerModule = await import(path).then((m) => m.default);
+      if (!module || (!module.handler && !module.beforeAll)) {
+        throw new Error(`Module is not valid: ${path}`);
+      }
+      return module;
+    } catch (e) {
+      console.error(e.message);
+      throw e;
     }
-    return module;
+  }
+
+  /**
+   * @param stepData
+   */
+  async #addAfter(stepData: AddStep) {
+    const index = new Date().getTime();
+    return Step.create({ ...stepData, index, workflowId: this.workflowId, parentKey: this.key });
+  }
+
+  async #getModule() {
+    return Step.getModule(this.handler);
   }
 
   /**
@@ -317,12 +391,6 @@ export default class Step {
   async #runTaskHandler(task: Task): Promise<any> {
     return new Promise(async (resolve, reject) => {
       let handler: Promise<any>;
-
-      const module = await Step.getModule(this.handler);
-      if (!module) {
-        return reject('Invalid module');
-      }
-
       const promises = [];
 
       // Set a timeout
@@ -337,6 +405,11 @@ export default class Step {
         step = await Step.getByKey(this.parentKey);
       } else {
         step = this;
+      }
+
+      const module = await this.#getModule();
+      if (!module) {
+        return reject('Invalid module');
       }
 
       // Get handler fn
@@ -378,34 +451,47 @@ export default class Step {
   /**
    * @private
    */
-  async #onTasksDone() {
-    const list = this.#list;
-    const listDone = this.#doneList;
+  async #onDone() {
+    debug('onDone');
 
-    this.#deflow.client.zrangebyscore(list, this.index, this.index, (err, reply) => {
-      if (err || reply.length === 0) {
-        throw new Error(`Step index ${this.index} does not exist in store`);
+    this.#deflow.client.zrangebyscore(this.#list, this.index, this.index, async (err, reply) => {
+      if (err) {
+        throw new Error(`Step ${this.name} with score ${this.index} does not exist in store`);
       }
 
-      const jsons = reply.map((r) => JSON.parse(r));
-      const jsonStep: JSONStep = jsons.find((j) => j.id === this.id);
+      if (reply.length > 0) {
+        // Make sure to delete the good one
+        const jsons = reply.map((r) => JSON.parse(r));
+        const jsonStep: JSONStep = jsons.find((j) => j.id === this.id);
 
-      if (!jsonStep) {
-        throw new Error(`Step id ${this.id} does not exist in store`);
-      }
-
-      this.#deflow.client.llen(this.#taskDoneQueue, async (err, reply) => {
-        if (reply === this.taskCount) {
-          await this.#deflow.client.zremrangebyscore(list, this.index, this.index, () => {
-            this.#deflow.client.zadd(listDone, this.index, JSON.stringify(jsonStep));
-          });
-
-          // Signal next step
-          await PubSubManager.publish({
-            action: Action.NextStep,
-            data: { workflowId: this.workflowId },
-          });
+        if (!jsonStep) {
+          throw new Error(`Step id ${this.id} does not exist in store`);
         }
+
+        const removed = await this.#removeIfDone();
+        if (removed) {
+          // Signal next step
+          await WorkFlow.runNextStep(this.workflowId);
+        }
+      }
+    });
+  }
+
+  async #removeIfDone(): Promise<boolean> {
+    debug('removeIfDone');
+
+    return new Promise((resolve, reject) => {
+      this.#deflow.client.llen(this.#taskDoneQueue, (err, reply) => {
+        if (reply !== this.taskCount) {
+          debug(`${reply}/${this.taskCount} tasks not done`);
+          return resolve(false);
+        }
+
+        debug(`step done: ${this.name}`);
+        this.#deflow.client.zremrangebyscore(this.#list, this.index, this.index, () => {
+          this.#deflow.client.zadd(this.#doneList, this.index, this.#toJSONListItem);
+          return resolve(true);
+        });
       });
     });
   }
@@ -413,7 +499,7 @@ export default class Step {
   /**
    * @private
    */
-  #getNextTask(): Promise<Task | null> {
+  async #getNextTask(): Promise<Task | null> {
     return new Promise((resolve, reject) => {
       this.#deflow.client.lpop(this.#taskPendingQueue, (err, res) => {
         if (!res) {
@@ -462,20 +548,24 @@ export default class Step {
   async #store(): Promise<boolean[]> {
     const deFlow = DeFlow.getInstance();
 
-    const list = [this.workflowId, 'steps'].join(':');
     const id = [this.workflowId, this.id].join(':');
 
-    const stepData = new Promise<boolean>((resolve) => {
+    const stepData = new Promise<boolean>((resolve, reject) => {
       const data = JSON.stringify(this);
       deFlow.client.set(id, data, (err, status) => {
-        return resolve(true);
+        if (err) {
+          return reject(err);
+        }
+        return resolve(status === 'OK');
       });
     });
 
-    const queueData = new Promise<boolean>((resolve) => {
-      const data = JSON.stringify({ id: this.id, key: this.key, parentKey: this.parentKey });
-      deFlow.client.zadd(list, this.index, data, (err, status) => {
-        return resolve(true);
+    const queueData = new Promise<boolean>((resolve, reject) => {
+      deFlow.client.zadd(this.#list, this.index, this.#toJSONListItem, (err, status) => {
+        if (err) {
+          return reject(err);
+        }
+        return resolve(!!status);
       });
     });
 
@@ -507,16 +597,26 @@ export default class Step {
     return [this.workflowId, 'steps-done'].join(':');
   }
 
+  get #toJSONListItem(): string {
+    return JSON.stringify({
+      id: this.id,
+      key: this.key,
+      name: this.name,
+      parentKey: this.parentKey,
+    } as JSONStepListItem);
+  }
+
   toJSON(): JSONStep {
     return {
       id: this.id,
-      index: this.index,
+      key: this.key,
       name: this.name,
+      index: this.index,
       handler: this.handler,
       handlerFn: this.handlerFn,
       workflowId: this.workflowId,
+      data: this.data,
       options: this.options,
-      key: this.key,
       parentKey: this.parentKey,
       taskCount: this.taskCount,
     };

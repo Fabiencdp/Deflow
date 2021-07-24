@@ -17,7 +17,7 @@ export type TaskJSON = {
   result?: any; // TODO: type
 };
 
-export default class Task {
+export default class Task<D = unknown, R = unknown> {
   public id: string;
   public data: any;
 

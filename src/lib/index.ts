@@ -3,6 +3,7 @@ import Client from './Client';
 import { RedisClient } from 'redis';
 import PubSubManager from './PubSubManager';
 import { uuid } from 'short-uuid';
+import WorkFlow from './WorkFlow';
 
 const debug = Debug('deflow');
 
@@ -25,10 +26,14 @@ export default class DeFlow {
 
   public id = uuid();
 
+  static WorkFlow = WorkFlow;
+
   constructor(options: DeFlowOptions) {
     this.client = Client.createRedisClient(options);
     this.subscriber = Client.createRedisClient(options);
     this.publisher = Client.createRedisClient(options);
+
+    this.client.flushall();
   }
 
   public static register(options: DeFlowOptions) {

@@ -14,15 +14,18 @@ setTimeout(() => {
  * Workflow test file
  */
 async function createSimpleWorkflow(): Promise<void> {
+  const tasks = Array.from(Array(100).keys());
+
   const steps = [
     {
       name: 'STEP 1',
       handler: path.resolve(__dirname, './steps/step-1'),
-      tasks: [1, 2, 3, 4, 5],
+      tasks,
     },
     {
       name: 'STEP 2',
       handler: path.resolve(__dirname, './steps/step-2'),
+      tasks,
     },
   ];
 

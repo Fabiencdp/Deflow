@@ -18,8 +18,11 @@
     "publish": "np",
     "build": "tsc --project ./",
     "test": "",
-    "example:simple": "DEBUG=deflow:* nodemon --inspect -w src examples/simple/index.ts",
-    "example:simple2": "DEBUG=deflow:* LISTENER=1 nodemon --inspect=9228 -w src examples/simple/index.ts"
+    "listener": "LISTENER=1 nodemon --inspect=9228 -w src examples/listener/index.ts",
+    "example:simple": "nodemon --inspect -w src examples/simple/index.ts",
+    "example:tree": "nodemon --inspect -w src examples/tree/index.ts",
+    "example:multi": "nodemon --inspect -w src examples/multi/index.ts",
+    "example:one-step": "nodemon --inspect -w src examples/one-step/index.ts"
   },
   "nodemonConfig": {
     "restartable": "rs",
