@@ -22,19 +22,19 @@ export type JSONTask<D = any, R = any> = {
 
 export default class Task<D = any, R = any> {
   public id: string;
+
   public data: D;
+  public result?: R;
 
   public failedCount: number;
-
   public error?: string;
-  public result?: R;
   public stepKey: string;
 
   /**
    * Create a task from json
    * @param json
    */
-  constructor(json: JSONTask) {
+  constructor(json: JSONTask<D, R>) {
     this.id = json.id;
     this.data = json.data;
 
@@ -82,7 +82,7 @@ export default class Task<D = any, R = any> {
   /**
    * Stringify method
    */
-  toJSON(): JSONTask {
+  toJSON(): JSONTask<D, R> {
     return {
       id: this.id,
       data: this.data,

@@ -1,10 +1,12 @@
-import Task from '../../../src/lib/Task';
+import { DeFlowStep } from '../../../src';
 
-export default {
+type StepModule = DeFlowStep<undefined, string | number, void>;
+
+const stepModule: StepModule = {
   taskTimeout: 8000,
   taskMaxFailCount: 5,
 
-  async handler(task: Task) {
+  async handler(task) {
     console.log('Step1: handler', task.data);
     if (task.data === 'a') {
       console.log('Step1: handler', task.data, 'CRASHING TASK');
@@ -15,3 +17,5 @@ export default {
     console.log('Step1: handler', task.data, 'Done');
   },
 };
+
+export default stepModule;

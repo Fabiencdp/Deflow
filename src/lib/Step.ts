@@ -10,15 +10,27 @@ const debug = Debug('deflow:step');
 
 type HandlerFn = 'handler' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
 
-type HandlerModule = Partial<StepOptions> & {
-  beforeAll?: (step: Step) => Promise<any>;
-  handler: (task: Task, step: Step) => Promise<any>;
-  onHandlerError?: (task: Task, error: Error) => Promise<any>;
-  afterEach?: (task: Task, step: Step) => Promise<any>;
-  afterAll?: (step: Step) => Promise<any>;
+type DeFlowStepBeforeAll<SD = any, D = any, R = any> = {
+  beforeAll: (step: Step<SD, D>) => Promise<void>;
+  handler?: (task: Task<D, R>, step: Step<SD>) => Promise<void | R>;
 };
 
-export type AddStep<SD = unknown, D = unknown> = {
+type DeFlowStepHandler<SD = any, D = any, R = any> = {
+  beforeAll?: (step: Step<SD, D>) => Promise<void>;
+  handler: (task: Task<D, R>, step: Step<SD>) => Promise<void | R>;
+};
+
+export type DeFlowStep<StepData = any, TaskData = any, TaskResult = any> = Partial<StepOptions> &
+  (
+    | DeFlowStepBeforeAll<StepData, TaskData, TaskResult>
+    | DeFlowStepHandler<StepData, TaskData, TaskResult>
+  ) & {
+    onHandlerError?: (task: Task<TaskData, TaskResult>, error: Error) => Promise<void>;
+    afterEach?: (task: Task<TaskData, TaskResult>, step: Step<StepData>) => Promise<void>;
+    afterAll?: (step: Step<StepData>) => Promise<void>;
+  };
+
+export type AddStep<SD = any, D = any> = {
   name: string;
   data?: SD;
   tasks?: D[];
@@ -27,7 +39,7 @@ export type AddStep<SD = unknown, D = unknown> = {
   options?: Partial<StepOptions>;
 };
 
-export type CreateStep<SD = unknown> = AddStep<SD> & {
+export type CreateStep<SD = any> = AddStep<SD> & {
   workflowId: string;
   handlerFn?: HandlerFn;
   parentKey?: string;
@@ -41,7 +53,7 @@ export type JSONStepListItem = {
   parentKey: string;
 };
 
-export type JSONStep<SD = unknown> = {
+export type JSONStep<SD = any> = {
   id: string;
   name: string;
 
@@ -71,7 +83,7 @@ const defaultStepOptions: StepOptions = {
   taskMaxFailCount: 1,
 };
 
-export default class Step<SD = unknown> {
+export default class Step<SD = any, D = any> {
   public id: string;
   public name: string;
   public index: number;
@@ -113,7 +125,7 @@ export default class Step<SD = unknown> {
    * Create a step
    * @static
    */
-  static async create<SD = unknown>(data: CreateStep<SD>): Promise<Step<SD>> {
+  static async create<SD = any>(data: CreateStep<SD>): Promise<Step<SD>> {
     const id = generate();
     const key = [data.workflowId, id].join(':');
 
@@ -122,7 +134,7 @@ export default class Step<SD = unknown> {
     // Get workflow default options
     const workFlow = await WorkFlow.getById(data.workflowId);
     if (!workFlow) {
-      throw new Error('unknown workflow');
+      throw new Error('any workflow');
     }
 
     if (workFlow.options) {
@@ -228,13 +240,12 @@ export default class Step<SD = unknown> {
     return step.runNextTask();
   }
 
-  public addAfter<SD>(stepData: AddStep<SD>[]): Promise<Step<SD>[]>;
-  public addAfter<SD>(stepData: AddStep<SD>): Promise<Step<SD>>;
+  public addAfter(stepData: AddStep[]): Promise<Step[]>;
 
   /**
    * @public
    */
-  public async addAfter<SD = unknown>(
+  public async addAfter<SD = any>(
     stepData: AddStep<SD> | AddStep<SD>[]
   ): Promise<Step<SD> | Step<SD>[]> {
     let data: AddStep<SD>[] = [];
@@ -246,7 +257,7 @@ export default class Step<SD = unknown> {
 
     const results: Step<SD>[] = [];
 
-    let created = this as unknown as Step<SD>;
+    let created = this as any as Step<SD>;
     for await (const d of data.reverse()) {
       created = await created.#addAfter<SD>(d);
       results.push(created);
@@ -261,7 +272,7 @@ export default class Step<SD = unknown> {
   /**
    * Add task to the step handler
    */
-  public async addTasks<D = unknown>(tasks: D[]): Promise<void> {
+  public async addTasks(tasks: D[]): Promise<void> {
     let count = this.taskCount;
     await tasks.reduce(async (prev: Promise<void | Task<D>>, taskData) => {
       await prev;
@@ -399,9 +410,9 @@ export default class Step<SD = unknown> {
   /**
    * @private
    */
-  static async getModule(path: string): Promise<HandlerModule> {
+  static async getModule(path: string): Promise<DeFlowStep> {
     try {
-      const module: HandlerModule = await import(path).then((m) => m.default);
+      const module: DeFlowStep = await import(path).then((m) => m.default);
       if (!module || (!module.handler && !module.beforeAll)) {
         throw new Error(`Module is not valid: ${path}`);
       }
@@ -415,7 +426,7 @@ export default class Step<SD = unknown> {
   /**
    * @param stepData
    */
-  async #addAfter<SD = unknown>(stepData: AddStep<SD>): Promise<Step<SD>> {
+  async #addAfter<SD = any>(stepData: AddStep<SD>): Promise<Step<SD>> {
     const index = new Date().getTime();
     return Step.create<SD>({
       ...stepData,
@@ -428,7 +439,7 @@ export default class Step<SD = unknown> {
   /**
    * Get the module from handler
    */
-  async #getModule(): Promise<HandlerModule> {
+  async #getModule(): Promise<DeFlowStep> {
     return Step.getModule(this.handler);
   }
 
@@ -457,8 +468,10 @@ export default class Step<SD = unknown> {
     } else if (this.handlerFn === 'beforeAll' && typeof module.beforeAll === 'function') {
       const step = await this.#getHandlerStep();
       handler = module.beforeAll(step);
-    } else {
+    } else if (typeof module.handler === 'function') {
       handler = module.handler(task, this);
+    } else {
+      return Promise.reject('Invalid module, missing method "handler"');
     }
 
     promises.push(handler);
