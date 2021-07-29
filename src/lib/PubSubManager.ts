@@ -1,6 +1,6 @@
-import DeFlow from './index';
 import WorkFlow from './WorkFlow';
-import Step from './Step';
+
+import DeFlow from './index';
 
 export enum Action {
   NextStep,
@@ -31,7 +31,10 @@ type Signals = SignalNextStep | SignalNextTask;
 export default class PubSubManager {
   private static channel = 'dfw';
 
-  static async subscribe() {
+  /**
+   * Subscribe to any event
+   */
+  static async subscribe(): Promise<void> {
     const deFlow = DeFlow.getInstance();
 
     deFlow.subscriber.on('pmessage', (pattern, channel, json) => {
@@ -52,7 +55,11 @@ export default class PubSubManager {
     deFlow.subscriber.psubscribe(PubSubManager.channel);
   }
 
-  static async publish(signal: Omit<Signals, 'publisherId'>) {
+  /**
+   * Publish an event
+   * @param signal
+   */
+  static async publish(signal: Omit<Signals, 'publisherId'>): Promise<void> {
     const deFlow = DeFlow.getInstance();
     const publisherId = deFlow.id;
     const data = { ...signal, action: signal.action, publisherId };
@@ -60,7 +67,11 @@ export default class PubSubManager {
     deFlow.publisher.publish(PubSubManager.channel, jsonSignal);
   }
 
-  static async nextStep(signal: SignalNextStep) {
+  /**
+   * Run next step
+   * @param signal
+   */
+  static async nextStep(signal: SignalNextStep): Promise<void> {
     return WorkFlow.runStep(signal.data.stepKey);
   }
 }

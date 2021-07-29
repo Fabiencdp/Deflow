@@ -1,5 +1,6 @@
 import Debug from 'debug';
 import { generate } from 'short-uuid';
+
 import DeFlow from './index';
 
 const debug = Debug('Task');
@@ -29,6 +30,10 @@ export default class Task<D = any, R = any> {
   public result?: R;
   public stepKey: string;
 
+  /**
+   * Create a task from json
+   * @param json
+   */
   constructor(json: JSONTask) {
     this.id = json.id;
     this.data = json.data;
@@ -74,6 +79,9 @@ export default class Task<D = any, R = any> {
     });
   }
 
+  /**
+   * Stringify method
+   */
   toJSON(): JSONTask {
     return {
       id: this.id,

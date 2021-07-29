@@ -1,7 +1,9 @@
 import Debug from 'debug';
 import { generate } from 'short-uuid';
+
 import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
+
 import DeFlow from './index';
 
 const debug = Debug('deflow:workflow');
@@ -27,6 +29,10 @@ export default class WorkFlow {
   public list: string;
   public options: WorkFlowOption;
 
+  /**
+   * Create a workflow from json
+   * @param json
+   */
   constructor(json: WorkFlowJSON) {
     this.id = json.id;
     this.name = json.name;
@@ -223,6 +229,9 @@ export default class WorkFlow {
     });
   }
 
+  /**
+   * Stringify method
+   */
   toJSON(): WorkFlowJSON {
     return {
       id: this.id,

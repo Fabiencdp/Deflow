@@ -2,9 +2,9 @@ import Debug from 'debug';
 import { generate } from 'short-uuid';
 
 import Task, { JSONTask } from './Task';
+import WorkFlow from './WorkFlow';
 
 import DeFlow from './index';
-import WorkFlow from './WorkFlow';
 
 const debug = Debug('deflow:step');
 
@@ -247,7 +247,7 @@ export default class Step {
     const results: Step[] = [];
 
     let created = this as Step;
-    for await (let d of data.reverse()) {
+    for await (const d of data.reverse()) {
       created = await created.#addAfter(d);
       results.push(created);
     }
@@ -315,7 +315,7 @@ export default class Step {
         return resolve({
           done: reply,
           total: this.taskCount,
-          percent: percent.toString().concat('%'),
+          percent: percent.toString().concat('%').concat(` - ${reply}/${this.taskCount}`),
         });
       });
     });
@@ -325,7 +325,7 @@ export default class Step {
    * Run the task
    * @private
    */
-  public async runNextTask() {
+  public async runNextTask(): Promise<void> {
     debug('runNextTask', this.name);
 
     let running = 0;
@@ -354,7 +354,7 @@ export default class Step {
 
     // Store in process queue, set a lock allow task requeue on node crash
     const score = new Date().getTime();
-    let lockArgs: [string, string, string?, number?] = [DeFlow.processLockKey, this.id];
+    const lockArgs: [string, string, string?, number?] = [DeFlow.processLockKey, this.id];
     if (taskTimeout) {
       // Add a lock with +1000 ms to let the timeout script handle error first
       lockArgs.push('PX', taskTimeout + 1000);
@@ -415,12 +415,15 @@ export default class Step {
   /**
    * @param stepData
    */
-  async #addAfter(stepData: AddStep) {
+  async #addAfter(stepData: AddStep): Promise<Step> {
     const index = new Date().getTime();
     return Step.create({ ...stepData, index, workflowId: this.workflowId, parentKey: this.key });
   }
 
-  async #getModule() {
+  /**
+   * Get the module from handler
+   */
+  async #getModule(): Promise<HandlerModule> {
     return Step.getModule(this.handler);
   }
 
@@ -428,40 +431,41 @@ export default class Step {
    * @private
    */
   async #runTaskHandler(task: Task): Promise<any> {
-    return new Promise(async (resolve, reject) => {
-      let handler: Promise<any>;
-      const promises = [];
+    const module = await this.#getModule();
+    if (!module) {
+      return Promise.reject('Invalid module');
+    }
 
-      // Set a timeout
-      let timeout: NodeJS.Timeout;
-      if (this.options.taskTimeout > 0) {
-        promises.push(this.#runTaskHandlerTimeout());
-      }
+    let handler: Promise<any>;
+    const promises: Promise<Error | any>[] = [];
 
-      // Get the parent step for specific handler
-      let step;
-      if (this.parentKey) {
-        step = await Step.getByKey(this.parentKey);
-      } else {
-        step = this;
-      }
+    // Set a timeout
+    let timeout: NodeJS.Timeout;
+    if (this.options.taskTimeout > 0) {
+      promises.push(this.#runTaskHandlerTimeout());
+    }
 
-      const module = await this.#getModule();
-      if (!module) {
-        return reject('Invalid module');
-      }
+    // Get the parent step for specific handler
+    let step;
+    if (this.parentKey) {
+      step = await Step.getByKey(this.parentKey);
+    } else {
+      step = this;
+    }
 
-      // Get handler fn
-      if (this.handlerFn === 'afterAll' && typeof module.afterAll === 'function') {
-        handler = module.afterAll(step);
-      } else if (this.handlerFn === 'beforeAll' && typeof module.beforeAll === 'function') {
-        handler = module.beforeAll(step);
-      } else {
-        handler = module.handler(task, step);
-      }
+    // Get handler fn
+    if (this.handlerFn === 'afterAll' && typeof module.afterAll === 'function') {
+      handler = module.afterAll(step);
+    } else if (this.handlerFn === 'beforeAll' && typeof module.beforeAll === 'function') {
+      handler = module.beforeAll(step);
+    } else {
+      handler = module.handler(task, step);
+    }
 
-      promises.push(handler);
+    promises.push(handler);
 
+    // Return the first resolved promise, timeout or result
+    return new Promise((resolve, reject) => {
       Promise.race(promises)
         .then((res) => resolve(res))
         .catch((err) => reject(err))
@@ -473,14 +477,22 @@ export default class Step {
     });
   }
 
-  async #runOnHandlerError(task: Task, error: Error) {
+  /**
+   * On handler error
+   * @param task
+   * @param error
+   */
+  async #runOnHandlerError(task: Task, error: Error): Promise<any> {
     const module = await Step.getModule(this.handler);
     if (typeof module.onHandlerError === 'function') {
       module.onHandlerError(task, error);
     }
   }
 
-  async #runTaskHandlerTimeout() {
+  /**
+   * Set a task timeout
+   */
+  async #runTaskHandlerTimeout(): Promise<Error> {
     const { taskTimeout } = this.options;
     return new Promise((resolve, reject) => {
       setTimeout(() => reject(new Error('Task handler timeout')), taskTimeout);
@@ -490,7 +502,7 @@ export default class Step {
   /**
    * @private
    */
-  async #onDone() {
+  async #onDone(): Promise<void> {
     debug('onDone');
 
     this.#deflow.client.zrangebyscore(this.#list, this.index, this.index, async (err, reply) => {
@@ -516,6 +528,9 @@ export default class Step {
     });
   }
 
+  /**
+   * Check if items are all resolved
+   */
   async #removeIfDone(): Promise<boolean> {
     debug('removeIfDone');
 
@@ -622,22 +637,37 @@ export default class Step {
     await this.#deflow.client.set(id, data);
   }
 
-  get #taskPendingQueue() {
+  /**
+   *
+   */
+  get #taskPendingQueue(): string {
     return [this.key, 'pending'].join(':');
   }
 
-  get #taskDoneQueue() {
+  /**
+   *
+   */
+  get #taskDoneQueue(): string {
     return [this.key, 'done'].join(':');
   }
 
-  get #list() {
+  /**
+   *
+   */
+  get #list(): string {
     return [this.workflowId, 'steps'].join(':');
   }
 
-  get #doneList() {
+  /**
+   *
+   */
+  get #doneList(): string {
     return [this.workflowId, 'steps-done'].join(':');
   }
 
+  /**
+   * Minimal step item for list store
+   */
   get #toJSONListItem(): string {
     return JSON.stringify({
       id: this.id,
@@ -647,6 +677,9 @@ export default class Step {
     } as JSONStepListItem);
   }
 
+  /**
+   * Stringify method
+   */
   toJSON(): JSONStep {
     return {
       id: this.id,

@@ -1,8 +1,9 @@
 import Debug from 'debug';
-import Client from './Client';
 import { RedisClient } from 'redis';
-import PubSubManager from './PubSubManager';
 import { generate } from 'short-uuid';
+
+import Client from './Client';
+import PubSubManager from './PubSubManager';
 import WorkFlow from './WorkFlow';
 import Step from './Step';
 import Task, { JSONTask } from './Task';
@@ -33,6 +34,10 @@ export default class DeFlow {
   static processLockKey = 'process-lock';
   static processQueue = 'process-queue';
 
+  /**
+   * Create deflow instance
+   * @param options
+   */
   constructor(options: DeFlowOptions) {
     this.client = Client.createRedisClient(options);
     this.subscriber = Client.createRedisClient(options);
@@ -41,7 +46,12 @@ export default class DeFlow {
     setInterval(() => this.#checkProcessQueue(), 5000);
   }
 
-  public static register(options: DeFlowOptions) {
+  /**
+   * Register the instance
+   * Subscribe to messages
+   * @param options
+   */
+  public static register(options: DeFlowOptions): DeFlow {
     if (DeFlow.instance) {
       console.warn('You tried to register DeFlow more than once');
       return DeFlow.instance;
@@ -53,13 +63,19 @@ export default class DeFlow {
     return DeFlow.instance;
   }
 
-  public static getInstance() {
+  /**
+   * Singleton get instance method
+   */
+  public static getInstance(): DeFlow {
     if (!DeFlow.instance) {
       throw new Error('You must register a DeFlow Instance');
     }
     return DeFlow.instance;
   }
 
+  /**
+   * Check the lock expiration and run task cleanup
+   */
   async #checkProcessQueue(): Promise<void> {
     this.client.get(DeFlow.processLockKey, (err, res) => {
       if (res) {
@@ -88,7 +104,7 @@ export default class DeFlow {
   /**
    * Restore a timeout task
    */
-  async #restoreTask(jsonTask: JSONTask) {
+  async #restoreTask(jsonTask: JSONTask): Promise<void> {
     const task = new Task(jsonTask);
     Step.getByKey(task.stepKey).then((step) => {
       console.log('restore');
