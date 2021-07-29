@@ -107,7 +107,7 @@ export default class DeFlow {
   async #restoreTask(jsonTask: JSONTask): Promise<void> {
     const task = new Task(jsonTask);
     Step.getByKey(task.stepKey).then((step) => {
-      console.log('restore');
+      debug('Restore Task of', step.name);
       const err = new Error('Unexpected Timeout');
       step.failTask(task, err).then(() => {
         step.runNextTask();

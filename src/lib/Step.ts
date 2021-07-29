@@ -278,7 +278,7 @@ export default class Step {
    * @param task
    * @param error
    */
-  async failTask(task: Task, error: Error) {
+  async failTask(task: Task, error: Error): Promise<boolean> {
     task.error = error.message;
     task.failedCount = task.failedCount + 1;
 
@@ -445,21 +445,15 @@ export default class Step {
       promises.push(this.#runTaskHandlerTimeout());
     }
 
-    // Get the parent step for specific handler
-    let step;
-    if (this.parentKey) {
-      step = await Step.getByKey(this.parentKey);
-    } else {
-      step = this;
-    }
-
     // Get handler fn
     if (this.handlerFn === 'afterAll' && typeof module.afterAll === 'function') {
+      const step = await this.#getHandlerStep();
       handler = module.afterAll(step);
     } else if (this.handlerFn === 'beforeAll' && typeof module.beforeAll === 'function') {
+      const step = await this.#getHandlerStep();
       handler = module.beforeAll(step);
     } else {
-      handler = module.handler(task, step);
+      handler = module.handler(task, this);
     }
 
     promises.push(handler);
@@ -475,6 +469,17 @@ export default class Step {
           }
         });
     });
+  }
+
+  /**
+   * return step when using before/after handler
+   */
+  async #getHandlerStep(): Promise<Step> {
+    if (this.parentKey) {
+      return Step.getByKey(this.parentKey);
+    } else {
+      return this;
+    }
   }
 
   /**
