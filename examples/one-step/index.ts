@@ -23,10 +23,15 @@ async function createSimpleWorkflow(): Promise<void> {
     {
       name: 'STEP 2',
       handler: path.resolve(__dirname, './steps/step-1'),
-      tasks: [1, 2, 3],
+      tasks: [1, 2, 'a', 3, 4, 5],
+    },
+    {
+      name: 'STEP 1',
+      handler: path.resolve(__dirname, './steps/step-1'),
+      tasks: [1, 2, 3, 4, 5],
     },
   ];
 
-  const wfl = await WorkFlow.create('simple', steps);
+  const wfl = await WorkFlow.create('simple', steps, { ifExist: 'replace' });
   await wfl.run();
 }

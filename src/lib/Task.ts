@@ -1,70 +1,87 @@
 import Debug from 'debug';
-import { uuid } from 'short-uuid';
+import { generate } from 'short-uuid';
 import DeFlow from './index';
 
 const debug = Debug('Task');
 
-export type CreateTask = {
-  data: any[];
+export type CreateTask<D = any> = {
+  data: D;
+  stepKey: string;
   queue: string;
 };
 
-export type TaskJSON = {
+export type JSONTask<D = any, R = any> = {
   id: string;
-  data: any;
+  data: D;
   failedCount: number;
   error?: string;
-  result?: any; // TODO: type
+  result?: R;
+  stepKey: string;
 };
 
-export default class Task<D = unknown, R = unknown> {
+export default class Task<D = any, R = any> {
   public id: string;
-  public data: any;
+  public data: D;
 
   public failedCount: number;
 
   public error?: string;
-  public result?: any; // TODO: type
+  public result?: R;
+  public stepKey: string;
 
-  constructor(json: TaskJSON) {
+  constructor(json: JSONTask) {
     this.id = json.id;
     this.data = json.data;
 
     this.failedCount = json.failedCount;
     this.error = json.error;
     this.result = json.result;
+
+    this.stepKey = json.stepKey;
   }
 
-  static async create(data: CreateTask): Promise<Task> {
-    const taskInstance = new Task({
-      id: uuid(),
+  /**
+   * Create a task
+   * @param data
+   */
+  static async create<D = unknown, R = unknown>(data: CreateTask<D>): Promise<Task<D, R>> {
+    const taskInstance = new Task<D, R>({
+      id: generate(),
       data: data.data,
       failedCount: 0,
+      stepKey: data.stepKey,
     });
 
-    await taskInstance.#store(data.queue);
+    await taskInstance.store(data.queue);
 
     return taskInstance;
   }
 
-  #store(queue: string): Promise<boolean> {
+  /**
+   * @param queue
+   */
+  async store(queue: string): Promise<boolean> {
     const deFlow = DeFlow.getInstance();
 
     const data = JSON.stringify(this);
-    return new Promise((resolve) => {
-      deFlow.client.rpush(queue, data, (err, status) => {
-        return resolve(true);
+    return new Promise((resolve, reject) => {
+      deFlow.client.rpush(queue, data, (err, added) => {
+        if (err) {
+          return reject(err);
+        }
+        return resolve(added > 0);
       });
     });
   }
 
-  toJSON(): TaskJSON {
+  toJSON(): JSONTask {
     return {
       id: this.id,
       data: this.data,
       failedCount: this.failedCount,
       error: this.error,
       result: this.result,
+      stepKey: this.stepKey,
     };
   }
 }

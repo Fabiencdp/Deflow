@@ -1,7 +1,7 @@
 import Debug from 'debug';
-import { uuid } from 'short-uuid';
+import { generate } from 'short-uuid';
 
-import Task, { TaskJSON } from './Task';
+import Task, { JSONTask } from './Task';
 
 import DeFlow from './index';
 import WorkFlow from './WorkFlow';
@@ -116,16 +116,24 @@ export default class Step {
    * @static
    */
   static async create(data: CreateStep) {
-    const id = uuid();
+    const id = generate();
     const key = [data.workflowId, id].join(':');
 
-    const { options: opts } = data;
+    let options = defaultStepOptions;
 
-    const options: StepOptions = {
-      taskConcurrency: opts?.taskConcurrency || 1,
-      taskMaxFailCount: opts?.taskMaxFailCount || 1,
-      taskTimeout: opts?.taskTimeout || 0,
-    };
+    // Get workflow default options
+    const workFlow = await WorkFlow.getById(data.workflowId);
+    if (!workFlow) {
+      throw new Error('unknown workflow');
+    }
+
+    if (workFlow.options) {
+      options = { ...options, ...workFlow.options };
+    }
+
+    if (data.options) {
+      options = { ...options, ...data.options };
+    }
 
     // Create step handlers
     const module = await Step.getModule(data.handler);
@@ -258,11 +266,28 @@ export default class Step {
     await tasks.reduce(async (prev, taskData) => {
       await prev;
       count += 1;
-      return Task.create({ queue: this.#taskPendingQueue, data: taskData });
+      return Task.create({ stepKey: this.key, queue: this.#taskPendingQueue, data: taskData });
     }, Promise.resolve());
 
     this.taskCount = count;
     return this.#update();
+  }
+
+  /**
+   * Manually fail a task
+   * @param task
+   * @param error
+   */
+  async failTask(task: Task, error: Error) {
+    task.error = error.message;
+    task.failedCount = task.failedCount + 1;
+
+    let dest = this.#taskPendingQueue;
+    if (task.failedCount >= this.options.taskMaxFailCount) {
+      dest = this.#taskDoneQueue;
+    }
+
+    return task.store(dest);
   }
 
   /**
@@ -320,10 +345,23 @@ export default class Step {
    * Run next task recursively
    */
   async #getNextTaskAndRun(): Promise<void> {
+    const { taskTimeout, taskMaxFailCount } = this.options;
+
     const task = await this.#getNextTask();
     if (!task) {
       return Promise.resolve();
     }
+
+    // Store in process queue, set a lock allow task requeue on node crash
+    const score = new Date().getTime();
+    let lockArgs: [string, string, string?, number?] = [DeFlow.processLockKey, this.id];
+    if (taskTimeout) {
+      // Add a lock with +1000 ms to let the timeout script handle error first
+      lockArgs.push('PX', taskTimeout + 1000);
+    }
+
+    await this.#deflow.client.sendCommand('SET', lockArgs);
+    await this.#deflow.client.zadd(DeFlow.processQueue, score, JSON.stringify(task));
 
     // Run the task
     let dest = this.#taskDoneQueue;
@@ -335,7 +373,7 @@ export default class Step {
       task.failedCount = task.failedCount + 1;
 
       // Retry failed task
-      if (task.failedCount < this.options.taskMaxFailCount) {
+      if (task.failedCount < taskMaxFailCount) {
         dest = this.#taskPendingQueue;
       }
 
@@ -345,6 +383,7 @@ export default class Step {
     // Push task to done/pending list
     const data = JSON.stringify(task);
     await this.#deflow.client.lpush(dest, data);
+    await this.#deflow.client.zremrangebyscore('process-queue', score, score);
 
     // Run after each method
     if (this.handlerFn === 'handler') {
@@ -502,13 +541,15 @@ export default class Step {
   async #getNextTask(): Promise<Task | null> {
     return new Promise((resolve, reject) => {
       this.#deflow.client.lpop(this.#taskPendingQueue, (err, res) => {
+        if (err) {
+          return reject(err);
+        }
         if (!res) {
           return resolve(null);
         }
 
-        const taskJSON: TaskJSON = JSON.parse(res);
+        const taskJSON: JSONTask = JSON.parse(res);
         const task = new Task(taskJSON);
-
         return resolve(task);
       });
     });

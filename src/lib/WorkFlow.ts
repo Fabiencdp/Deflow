@@ -1,6 +1,6 @@
 import Debug from 'debug';
-import { uuid } from 'short-uuid';
-import Step, { AddStep, JSONStepListItem } from './Step';
+import { generate } from 'short-uuid';
+import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import DeFlow from './index';
 
@@ -10,29 +10,46 @@ export type WorkFlowJSON = {
   id: string;
   name: string;
   queueId: string;
+  options: WorkFlowOption;
+};
+
+export type WorkFlowOption = Partial<StepOptions> & {
+  ifExist: 'replace' | 'create';
+};
+
+const defaultOptions: WorkFlowOption = {
+  ifExist: 'create',
 };
 
 export default class WorkFlow {
   public id: string;
   public name: string;
   public list: string;
+  public options: WorkFlowOption;
 
   constructor(json: WorkFlowJSON) {
     this.id = json.id;
     this.name = json.name;
     this.list = json.queueId;
+    this.options = json.options;
   }
 
   /**
    * Create and save new workflow
    * @param name
    * @param steps
+   * @param opts
    */
-  static async create(name: string, steps: AddStep[]) {
-    const id = uuid();
+  static async create(
+    name: string,
+    steps: AddStep[],
+    opts: Partial<WorkFlowOption> = {}
+  ): Promise<WorkFlow> {
+    const id = [name, generate()].join(':');
     const queueId = [id, 'steps'].join(':');
 
-    const workFlowInstance = new WorkFlow({ id, name, queueId });
+    const options = { ...defaultOptions, ...opts };
+    const workFlowInstance = new WorkFlow({ id, name, queueId, options });
 
     await workFlowInstance.#store();
 
@@ -48,7 +65,7 @@ export default class WorkFlow {
    * Run a step by key
    * @param key
    */
-  public static async runStep(key: string) {
+  public static async runStep(key: string): Promise<void> {
     debug(`runStep ${key}`);
 
     const step = await Step.getByKey(key);
@@ -112,7 +129,7 @@ export default class WorkFlow {
   /**
    * Run the workflow
    */
-  public async run() {
+  public async run(): Promise<void> {
     return WorkFlow.runNextStep(this.id);
   }
 
@@ -150,13 +167,18 @@ export default class WorkFlow {
     debug('store');
 
     const deFlow = DeFlow.getInstance();
+
+    if (this.options.ifExist === 'replace') {
+      await this.#cleanByKey(this.name);
+    }
+
     const data = JSON.stringify(this);
     return new Promise((resolve, reject) => {
       deFlow.client.set(this.id, data, (err, status) => {
         if (err) {
           return reject(err);
         }
-        return resolve(status === 'OK');
+        return resolve(true);
       });
     });
   }
@@ -166,11 +188,19 @@ export default class WorkFlow {
    */
   async #clean(): Promise<void> {
     debug('clean');
+    return this.#cleanByKey(this.id);
+  }
+
+  /**
+   * Remove from redis
+   */
+  async #cleanByKey(key: string): Promise<void> {
+    debug('cleanByKey', key);
 
     const deFlow = DeFlow.getInstance();
-    const pattern = [this.id, '*'].join(':');
+    const pattern = [key, '*'].join(':');
 
-    await deFlow.client.del(this.id);
+    await deFlow.client.del(key);
 
     return new Promise((resolve, reject) => {
       deFlow.client.keys(pattern, (err, keys) => {
@@ -183,9 +213,9 @@ export default class WorkFlow {
         }
 
         // There is a bit of a delay between get/delete but it is unavoidable
-        deFlow.client.del(keys, (err1, reply) => {
-          if (err) {
-            return reject(err);
+        deFlow.client.del(keys, (delErr) => {
+          if (delErr) {
+            return reject(delErr);
           }
           return resolve();
         });
@@ -198,6 +228,7 @@ export default class WorkFlow {
       id: this.id,
       name: this.name,
       queueId: this.list,
+      options: this.options,
     };
   }
 }
