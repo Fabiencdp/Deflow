@@ -8,8 +8,6 @@ import DeFlow from './index';
 
 const debug = Debug('deflow:step');
 
-type TaskData = any;
-
 type HandlerFn = 'handler' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
 
 type HandlerModule = Partial<StepOptions> & {
@@ -20,16 +18,16 @@ type HandlerModule = Partial<StepOptions> & {
   afterAll?: (step: Step) => Promise<any>;
 };
 
-export type AddStep = {
+export type AddStep<SD = unknown, D = unknown> = {
   name: string;
-  tasks?: TaskData[];
-  data?: any;
+  data?: SD;
+  tasks?: D[];
   steps?: AddStep[];
   handler: string;
   options?: Partial<StepOptions>;
 };
 
-export type CreateStep = AddStep & {
+export type CreateStep<SD = unknown> = AddStep<SD> & {
   workflowId: string;
   handlerFn?: HandlerFn;
   parentKey?: string;
@@ -43,7 +41,7 @@ export type JSONStepListItem = {
   parentKey: string;
 };
 
-export type JSONStep = {
+export type JSONStep<SD = unknown> = {
   id: string;
   name: string;
 
@@ -53,7 +51,7 @@ export type JSONStep = {
   index: number;
   taskCount: number;
 
-  data?: any;
+  data?: SD;
   options: StepOptions;
 
   workflowId: string;
@@ -73,11 +71,11 @@ const defaultStepOptions: StepOptions = {
   taskMaxFailCount: 1,
 };
 
-export default class Step {
+export default class Step<SD = unknown> {
   public id: string;
   public name: string;
   public index: number;
-  public data?: any;
+  public data?: SD;
 
   public handler: string;
   public handlerFn?: HandlerFn;
@@ -94,7 +92,7 @@ export default class Step {
   /**
    * @param json
    */
-  constructor(json: JSONStep) {
+  constructor(json: JSONStep<SD>) {
     this.id = json.id;
     this.name = json.name;
     this.index = json.index;
@@ -115,7 +113,7 @@ export default class Step {
    * Create a step
    * @static
    */
-  static async create(data: CreateStep) {
+  static async create<SD = unknown>(data: CreateStep<SD>): Promise<Step<SD>> {
     const id = generate();
     const key = [data.workflowId, id].join(':');
 
@@ -175,7 +173,7 @@ export default class Step {
       options.taskMaxFailCount = module.taskMaxFailCount;
     }
 
-    const stepInstance = new Step({
+    const stepInstance = new Step<SD>({
       id,
       key,
       index: data.index,
@@ -230,25 +228,27 @@ export default class Step {
     return step.runNextTask();
   }
 
-  public addAfter(stepData: AddStep[]): Promise<Step[]>;
-  public addAfter(stepData: AddStep): Promise<Step>;
+  public addAfter<SD>(stepData: AddStep<SD>[]): Promise<Step<SD>[]>;
+  public addAfter<SD>(stepData: AddStep<SD>): Promise<Step<SD>>;
 
   /**
    * @public
    */
-  public async addAfter(stepData: AddStep | AddStep[]): Promise<Step | Step[]> {
-    let data: AddStep[] = [];
+  public async addAfter<SD = unknown>(
+    stepData: AddStep<SD> | AddStep<SD>[]
+  ): Promise<Step<SD> | Step<SD>[]> {
+    let data: AddStep<SD>[] = [];
     if (!Array.isArray(stepData)) {
       data = [stepData];
     } else {
       data = stepData;
     }
 
-    const results: Step[] = [];
+    const results: Step<SD>[] = [];
 
-    let created = this as Step;
+    let created = this as unknown as Step<SD>;
     for await (const d of data.reverse()) {
-      created = await created.#addAfter(d);
+      created = await created.#addAfter<SD>(d);
       results.push(created);
     }
 
@@ -261,9 +261,9 @@ export default class Step {
   /**
    * Add task to the step handler
    */
-  public async addTasks(tasks: TaskData[]): Promise<void> {
+  public async addTasks<D = unknown>(tasks: D[]): Promise<void> {
     let count = this.taskCount;
-    await tasks.reduce(async (prev, taskData) => {
+    await tasks.reduce(async (prev: Promise<void | Task<D>>, taskData) => {
       await prev;
       count += 1;
       return Task.create({ stepKey: this.key, queue: this.#taskPendingQueue, data: taskData });
@@ -415,9 +415,14 @@ export default class Step {
   /**
    * @param stepData
    */
-  async #addAfter(stepData: AddStep): Promise<Step> {
+  async #addAfter<SD = unknown>(stepData: AddStep<SD>): Promise<Step<SD>> {
     const index = new Date().getTime();
-    return Step.create({ ...stepData, index, workflowId: this.workflowId, parentKey: this.key });
+    return Step.create<SD>({
+      ...stepData,
+      index,
+      workflowId: this.workflowId,
+      parentKey: this.key,
+    });
   }
 
   /**
