@@ -75,12 +75,14 @@ export type StepOptions = {
   taskTimeout: number;
   taskMaxFailCount: number;
   taskConcurrency: number;
+  taskFailRetryDelay: number | null;
 };
 
 const defaultStepOptions: StepOptions = {
   taskTimeout: 0,
   taskConcurrency: 1,
   taskMaxFailCount: 1,
+  taskFailRetryDelay: null,
 };
 
 export default class Step<SD = any, D = any> {
@@ -389,6 +391,7 @@ export default class Step<SD = any, D = any> {
       }
 
       await this.#runOnHandlerError(task, error);
+      await this.#taskFailRetryDelay();
     }
 
     // Push task to done/pending list
@@ -520,6 +523,17 @@ export default class Step<SD = any, D = any> {
     return new Promise((resolve, reject) => {
       setTimeout(() => reject(new Error('Task handler timeout')), taskTimeout);
     });
+  }
+
+  /**
+   * Retry delay
+   */
+  async #taskFailRetryDelay(): Promise<void> {
+    const { taskFailRetryDelay } = this.options;
+    if (!taskFailRetryDelay) {
+      return Promise.resolve();
+    }
+    return new Promise<void>((r) => setTimeout(() => r(), taskFailRetryDelay));
   }
 
   /**
