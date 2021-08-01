@@ -1,6 +1,8 @@
 import Task from '../../../src/lib/Task';
 import Step from '../../../src/lib/Step';
 import path from 'path';
+import { Step1_1 } from './step-1-1';
+import { Step1_2 } from './step-1-2';
 
 export default {
   async beforeAll(step: Step) {
@@ -13,15 +15,14 @@ export default {
 
     await new Promise((r) => setTimeout(() => r(null), 4000));
 
-    await step.addAfter([
+    await step.addAfter<[Step1_1, Step1_2]>([
       {
         name: 'step-1.1',
-        tasks: [task.data],
         handler: path.resolve(__dirname, './step-1-1'),
       },
       {
         name: 'step-1.2',
-        tasks: [task.data],
+        tasks: [task.data], // TODO: fix type
         handler: path.resolve(__dirname, './step-1-2'),
       },
     ]);

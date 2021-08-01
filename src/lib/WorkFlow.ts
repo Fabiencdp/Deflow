@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import { generate } from 'short-uuid';
 
-import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
+import Step, { AddStep, DeFlowStepSD, DeFlowStepTD, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 
 import DeFlow from './index';
@@ -30,6 +30,11 @@ export default class WorkFlow {
   public options: WorkFlowOption;
 
   /**
+   * Temp in memory store
+   */
+  #addedSteps: AddStep[] = [];
+
+  /**
    * Create a workflow from json
    * @param json
    */
@@ -40,31 +45,32 @@ export default class WorkFlow {
     this.options = json.options;
   }
 
+  static create(name: string, steps: AddStep[], opts: Partial<WorkFlowOption>): WorkFlow;
+  static create(name: string, opts: Partial<WorkFlowOption>): WorkFlow;
+
   /**
    * Create and save new workflow
    * @param name
    * @param steps
    * @param opts
    */
-  static async create(
+  static create(
     name: string,
-    steps: AddStep[],
+    steps: AddStep[] | Partial<WorkFlowOption>,
     opts: Partial<WorkFlowOption> = {}
-  ): Promise<WorkFlow> {
+  ): WorkFlow {
     const id = [name, generate()].join(':');
     const queueId = [id, 'steps'].join(':');
 
-    const options = { ...defaultOptions, ...opts };
-    const workFlowInstance = new WorkFlow({ id, name, queueId, options });
+    const inputOpts = typeof steps === 'object' && !Array.isArray(steps) ? steps : opts;
+    const options = { ...defaultOptions, ...inputOpts };
+    const workFlow = new WorkFlow({ id, name, queueId, options });
 
-    await workFlowInstance.#store();
+    if (Array.isArray(steps) && steps.length > 0) {
+      workFlow.#addedSteps = steps;
+    }
 
-    await steps.reverse().reduce(async (prev, data) => {
-      await prev;
-      await Step.create({ ...data, index: new Date().getTime(), workflowId: workFlowInstance.id });
-    }, Promise.resolve());
-
-    return workFlowInstance;
+    return workFlow;
   }
 
   /**
@@ -136,7 +142,20 @@ export default class WorkFlow {
    * Run the workflow
    */
   public async run(): Promise<void> {
+    await this.#store();
+    if (this.#addedSteps.length > 0) {
+      await this.#storeSteps();
+    }
     return WorkFlow.runNextStep(this.id);
+  }
+
+  /**
+   * Add a step to the current workflow
+   * @param stepData
+   */
+  public addStep<T = unknown>(stepData: AddStep<DeFlowStepSD<T>, DeFlowStepTD<T>>): WorkFlow {
+    this.#addedSteps.push(stepData);
+    return this;
   }
 
   /**
@@ -187,6 +206,16 @@ export default class WorkFlow {
         return resolve(true);
       });
     });
+  }
+
+  /**
+   * Store added step sequentially, reverse order to keep good process order
+   */
+  async #storeSteps(): Promise<void> {
+    await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data) => {
+      await prev;
+      return Step.create({ ...data, index: new Date().getTime(), workflowId: this.id });
+    }, Promise.resolve());
   }
 
   /**

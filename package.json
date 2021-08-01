@@ -26,7 +26,6 @@
     "example:simple": "nodemon --inspect -w src examples/simple/index.ts",
     "example:tree": "nodemon --inspect -w src examples/tree/index.ts",
     "example:multi": "nodemon --inspect -w src examples/multi/index.ts",
-    "example:one-step": "nodemon --inspect -w src examples/one-step/index.ts",
     "validate-branch-name": "validate-branch-name"
   },
   "nodemonConfig": {

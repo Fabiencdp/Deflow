@@ -1,53 +1,68 @@
-import Task from '../../../src/lib/Task';
-import Step from '../../../src/lib/Step';
-import path from 'path';
+import { DeFlowStep } from '../../../src';
 
-export default {
+export type SimpleStep2 = DeFlowStep<void, number, number>;
+
+/**
+ * This step will show timeout error can be handled
+ */
+const step2: SimpleStep2 = {
   taskTimeout: 4000,
-  taskMaxFailCount: 2,
+  taskMaxFailCount: 3,
 
-  async beforeAll(step: Step) {
-    console.log('Step2: BeforeAll');
-    await step.addTasks([{ value: 10 }, { value: 20 }, { value: 30 }, { value: 40 }]);
+  /**
+   * Get previous results
+   */
+  async beforeAll(step) {
+    const prev = await step.getPrevious();
+    console.log(prev);
+    if (prev) {
+      const results = await prev.getResults();
+      const nextTasks = results.map((r) => r.result);
+      await step.addTasks(nextTasks);
+    }
   },
 
-  async handler(task: Task) {
+  /**
+   * For each task, return the data as a string
+   * @param task
+   */
+  async handler(task) {
     console.log('Step2: handler', task.data);
 
-    await new Promise((r) => setTimeout(() => r(null), 1500));
-
-    // Will throw an error
-    if (task.data.value === 30) {
-      return Promise.reject('Random step 2 error');
-    }
-
     // Will throw a timeout error
-    if (task.data.value === 40) {
+    if (task.data === 40) {
       await new Promise((r) => setTimeout(() => r(null), 5000));
     }
 
-    return `Success ${task.data}`;
+    return task.data;
   },
-
-  async onHandlerError(task: Task, error: Error) {
-    console.log(
-      `Step2: onHandlerError`,
-      `${task.failedCount}/${this.taskMaxFailCount} fail`,
-      error.message
-    );
-  },
-
-  async afterAll(step: Step) {
-    const res = await step.getResults();
-    const success = res.filter((task) => !task.error);
-    const errors = res.filter((task) => task.error);
-
-    console.log(`Step2: afterAll\n${success.length} success\n${errors.length} errors:`);
-    console.log(errors);
-
-    await step.addAfter({
-      name: 'STEP 2.2',
-      handler: path.join(__dirname, './step-2.2'),
-    });
-  },
+  //
+  // /**
+  //  * On error, show a log
+  //  * @param task
+  //  * @param error
+  //  */
+  // async onHandlerError(task, error) {
+  //   console.log(
+  //     `Step2: onHandlerError`,
+  //     `${task.failedCount}/${this.taskMaxFailCount} fail`,
+  //     error.message
+  //   );
+  // },
+  //
+  // /**
+  //  * After all task, log some stats
+  //  * @param step
+  //  */
+  // async afterAll(step) {
+  //   const res = await step.getResults();
+  //   const success = res.filter((task) => !task.error);
+  //   const errors = res.filter((task) => task.error);
+  //
+  //   console.log(`Step2: afterAll\n${success.length} success\n${errors.length} errors:`);
+  //   console.log(errors);
+  // },
 };
+
+// Export as default
+export default step2;

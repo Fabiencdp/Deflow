@@ -2,6 +2,9 @@ import * as path from 'path';
 
 import DeFlow, { WorkFlow } from '../../src';
 
+import { SimpleStep2 } from './steps/step-2';
+import { SimpleStep1 } from './steps/step-1';
+
 console.clear();
 
 DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
@@ -14,18 +17,15 @@ setTimeout(() => {
  * Workflow test file
  */
 async function createSimpleWorkflow(): Promise<void> {
-  const steps = [
-    {
-      name: 'STEP 1',
+  await WorkFlow.create('simple', { ifExist: 'replace' })
+    .addStep<SimpleStep1>({
+      name: 'step1: Parser',
       handler: path.resolve(__dirname, './steps/step-1'),
-      tasks: [1, 2, 3, 4, 5],
-    },
-    {
-      name: 'STEP 2',
+      tasks: ['1.1', '2.4', '2.89', '10', '5'],
+    })
+    .addStep<SimpleStep2>({
+      name: 'Step2: Transformer',
       handler: path.resolve(__dirname, './steps/step-2'),
-    },
-  ];
-
-  const wfl = await WorkFlow.create('simple', steps);
-  await wfl.run();
+    })
+    .run();
 }

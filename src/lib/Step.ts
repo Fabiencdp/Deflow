@@ -30,6 +30,12 @@ export type DeFlowStep<StepData = any, TaskData = any, TaskResult = any> = Parti
     afterAll?: (step: Step<StepData>) => Promise<void>;
   };
 
+export type DeFlowStepSD<G> = G extends DeFlowStep<infer T, any, any> ? T : never;
+export type DeFlowStepTD<G> = G extends DeFlowStep<any, infer T, any> ? T : never;
+export type DeFlowStepTR<G> = G extends DeFlowStep<any, any, infer T> ? T : never;
+
+export type StepWithData<T> = Step<DeFlowStepSD<T>, DeFlowStepTD<T>>;
+
 export type AddStep<SD = any, D = any> = {
   name: string;
   data?: SD;
@@ -127,7 +133,7 @@ export default class Step<SD = any, D = any> {
    * Create a step
    * @static
    */
-  static async create<SD = any>(data: CreateStep<SD>): Promise<Step<SD>> {
+  static async create<SD = unknown, TD = unknown>(data: CreateStep<SD>): Promise<Step<SD, TD>> {
     const id = generate();
     const key = [data.workflowId, id].join(':');
 
@@ -242,26 +248,31 @@ export default class Step<SD = any, D = any> {
     return step.runNextTask();
   }
 
-  public addAfter(stepData: AddStep[]): Promise<Step[]>;
+  /**
+   * @public
+   * Add Multiple steps after the current one
+   */
+  public addAfter<T = any>(stepData: AddStep<StepWithData<T>>[]): Promise<Step[]>;
 
   /**
    * @public
+   * Add a step after the current one
    */
-  public async addAfter<SD = any>(
-    stepData: AddStep<SD> | AddStep<SD>[]
-  ): Promise<Step<SD> | Step<SD>[]> {
-    let data: AddStep<SD>[] = [];
+  public async addAfter<T = any>(
+    stepData: AddStep<StepWithData<T>> | AddStep<StepWithData<T>>[]
+  ): Promise<Step<StepWithData<T>> | Step<StepWithData<T>>[]> {
+    let data: AddStep<StepWithData<T>>[] = [];
     if (!Array.isArray(stepData)) {
       data = [stepData];
     } else {
       data = stepData;
     }
 
-    const results: Step<SD>[] = [];
+    const results: Step<StepWithData<T>>[] = [];
 
-    let created = this as any as Step<SD>;
+    let created = this as unknown as Step<StepWithData<T>>;
     for await (const d of data.reverse()) {
-      created = await created.#addAfter<SD>(d);
+      created = await created.#addAfter<StepWithData<T>>(d);
       results.push(created);
     }
 
@@ -308,6 +319,38 @@ export default class Step<SD = any, D = any> {
    */
   public async getResults(): Promise<Task[]> {
     return this.#getTaskRange(0, 100);
+  }
+
+  /**
+   * Get current progress value
+   */
+  public async getPrevious(): Promise<Step | undefined> {
+    debug('getPrevious');
+
+    return new Promise((resolve) => {
+      const max = `(${this.index}`;
+
+      this.#deflow.client.sendCommand(
+        'ZRANGE',
+        [this.#doneList, max, '+inf', 'BYSCORE', 'LIMIT', 0, 3],
+        (err, reply: string[]) => {
+          if (err) {
+            return resolve(undefined);
+          }
+
+          const json = reply
+            .reverse()
+            .map((str) => JSON.parse(str))
+            .find((j: JSONStep) => !j.parentKey);
+
+          if (!json) {
+            return resolve(undefined);
+          }
+
+          return resolve(new Step(json));
+        }
+      );
+    });
   }
 
   /**
@@ -429,9 +472,9 @@ export default class Step<SD = any, D = any> {
   /**
    * @param stepData
    */
-  async #addAfter<SD = any>(stepData: AddStep<SD>): Promise<Step<SD>> {
+  async #addAfter<SD = any, TS = any>(stepData: AddStep<SD, TS>): Promise<Step<SD, TS>> {
     const index = new Date().getTime();
-    return Step.create<SD>({
+    return Step.create<SD, TS>({
       ...stepData,
       index,
       workflowId: this.workflowId,
