@@ -25,7 +25,7 @@ const step1_1: Step1_1 = {
     await new Promise((r) => setTimeout(() => r(null), 2000));
   },
 
-  async afterAll(step) {
+  async afterAll() {
     console.log('Step-1.1: afterAll');
     await new Promise((r) => setTimeout(() => r(null), 8000));
   },

@@ -20,12 +20,12 @@ async function createSimpleWorkflow(): Promise<void> {
   await WorkFlow.create('simple', { ifExist: 'replace' })
     .addStep<SimpleStep1>({
       name: 'step1: Parser',
-      handler: path.resolve(__dirname, './steps/step-1'),
+      module: path.resolve(__dirname, './steps/step-1'),
       tasks: ['1.1', '2.4', '2.89', '10', '5'],
     })
     .addStep<SimpleStep2>({
       name: 'Step2: Transformer',
-      handler: path.resolve(__dirname, './steps/step-2'),
+      module: path.resolve(__dirname, './steps/step-2'),
     })
     .run();
 }

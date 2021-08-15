@@ -17,12 +17,12 @@ async function createSimpleWorkflow(): Promise<void> {
   const steps = [
     {
       name: 'STEP 1',
-      handler: path.resolve(__dirname, './steps/step-1'),
+      module: path.resolve(__dirname, './steps/step-1'),
       data: { toCreate: 4 },
     },
     {
       name: 'STEP 2',
-      handler: path.resolve(__dirname, './steps/step-2'),
+      module: path.resolve(__dirname, './steps/step-2'),
     },
   ];
 

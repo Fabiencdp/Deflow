@@ -1,6 +1,5 @@
 import Task from '../../../src/lib/Task';
 import Step from '../../../src/lib/Step';
-import path from 'path';
 
 export default {
   taskTimeout: 4000,
