@@ -7,11 +7,12 @@ const step1_2: Step1_2 = {
   taskMaxFailCount: 2,
 
   async handler(task) {
-    console.log('\nStep-1.2: handler', task.data, '\n');
+    console.log('Step-1.2: handler', task.data);
     await new Promise((r) => setTimeout(() => r(null), 4000 + Math.random() * 1000));
   },
 
   async onHandlerError(task, error) {
+    console.log(error);
     console.log(
       `Step-1-2: onHandlerError`,
       `${task.failedCount}/${this.taskMaxFailCount} fail`,

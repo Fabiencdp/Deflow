@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import { generate } from 'short-uuid';
 
-import Step, { AddStep, DeFlowStepSD, DeFlowStepTD, JSONStepListItem, StepOptions } from './Step';
+import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 
 import DeFlow from './index';
@@ -45,7 +45,7 @@ export default class WorkFlow {
     this.options = json.options;
   }
 
-  static create(name: string, steps: AddStep[], opts: Partial<WorkFlowOption>): WorkFlow;
+  static create(name: string, steps: AddStep[], opts?: Partial<WorkFlowOption>): WorkFlow;
   static create(name: string, opts: Partial<WorkFlowOption>): WorkFlow;
 
   /**
@@ -153,7 +153,7 @@ export default class WorkFlow {
    * Add a step to the current workflow
    * @param stepData
    */
-  public addStep<T = unknown>(stepData: AddStep<DeFlowStepSD<T>, DeFlowStepTD<T>>): WorkFlow {
+  public addStep<T = unknown>(stepData: AddStep<T>): WorkFlow {
     this.#addedSteps.push(stepData);
     return this;
   }
