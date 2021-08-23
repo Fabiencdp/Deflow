@@ -50,6 +50,7 @@ export default class Task<D = any, R = any> {
    * @param data
    */
   static async create<D = unknown, R = unknown>(data: CreateTask<D>): Promise<Task<D, R>> {
+    debug('create', data.queue);
     const taskInstance = new Task<D, R>({
       id: generate(),
       data: data.data,

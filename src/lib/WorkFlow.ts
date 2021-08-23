@@ -199,7 +199,7 @@ export default class WorkFlow {
 
     const data = JSON.stringify(this);
     return new Promise((resolve, reject) => {
-      deFlow.client.set(this.id, data, (err, status) => {
+      deFlow.client.set(this.id, data, (err) => {
         if (err) {
           return reject(err);
         }
