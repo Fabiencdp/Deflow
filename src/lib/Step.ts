@@ -37,8 +37,8 @@ export type DeFlowStep<SD = any, TD = any, TR = any> = Partial<StepOptions> &
     TaskResult?: TR;
   };
 
-export type ESD<T> = T extends DeFlowStep<infer SD, any, any> ? SD : never;
-export type ETD<T> = T extends DeFlowStep<any, infer TD, any> ? TD : never;
+export type ESD<T> = T extends DeFlowStep<infer SD> ? SD : never;
+export type ETD<T> = T extends DeFlowStep<any, infer TD> ? TD : never;
 export type ETR<T> = T extends DeFlowStep<any, any, infer TR> ? TR : never;
 
 export type AddStep<T = any> = {
