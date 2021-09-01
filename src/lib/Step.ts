@@ -74,7 +74,7 @@ export type JSONStep<T = any> = {
   index: number;
   taskCount: number;
 
-  data?: ESD<T>;
+  data: ESD<T>;
   options: StepOptions;
 
   workflowId: string;
@@ -100,7 +100,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   public id: string;
   public name: string;
   public index: number;
-  public data?: SD;
+  public data: SD;
 
   public module: string;
   public moduleFn?: HandlerFn;
@@ -138,7 +138,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * Create a step
    * @static
    */
-  static async create<SD = any, TD = any>(data: CreateStep<SD, TD>): Promise<Step<SD, TD>> {
+  static async create(data: CreateStep): Promise<Step> {
     const id = generate();
     const key = [data.workflowId, id].join(':');
 
@@ -223,7 +223,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     //   await stepInstance.addAfter(data.steps);
     // }
 
-    return stepInstance as any;
+    return stepInstance;
   }
 
   /**
