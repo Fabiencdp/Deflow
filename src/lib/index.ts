@@ -18,6 +18,7 @@ export interface DeFlowOptions {
     connectTimeout?: number;
     retryMaxDelay?: number;
   };
+  checkProcessQueueInterval?: number;
 }
 
 export default class DeFlow {
@@ -43,7 +44,9 @@ export default class DeFlow {
     this.subscriber = Client.createRedisClient(options);
     this.publisher = Client.createRedisClient(options);
 
-    setInterval(() => this.#checkProcessQueue(), 5000);
+    if (options.checkProcessQueueInterval && options.checkProcessQueueInterval > 0) {
+      setInterval(() => this.#checkProcessQueue(), options.checkProcessQueueInterval);
+    }
   }
 
   /**
@@ -83,12 +86,12 @@ export default class DeFlow {
         return;
       }
 
-      this.client.sendCommand('ZPOPMIN', [DeFlow.processQueue], (err, res) => {
+      this.client.send_command('ZPOPMIN', [DeFlow.processQueue], (err, res) => {
         if (err) {
           console.error(err);
         }
 
-        if (res.length === 0) {
+        if (!res || res.length === 0) {
           return;
         }
 

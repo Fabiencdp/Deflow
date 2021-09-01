@@ -10,16 +10,19 @@ const debug = Debug('deflow:step');
 
 type HandlerFn = 'module' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
 
-type BeforeAll<SD = any> = (step: Step<SD>) => Promise<void>;
-type Handler<SD = any, D = any, R = any> = (task: Task<D, R>, step: Step<SD>) => Promise<void | R>;
+type BeforeAll<SD = any, D = any, R = any> = (step: Step<SD, D, R>) => Promise<void>;
+type Handler<SD = any, D = any, R = any> = (
+  task: Task<D, R>,
+  step: Step<SD, D, R>
+) => Promise<void | R>;
 
 type BeforeAllOnly<SD = any, TD = any, TR = any> = {
-  beforeAll: BeforeAll<SD>;
+  beforeAll: BeforeAll<SD, TD, TR>;
   handler?: Handler<SD, TD, TR>;
 };
 
 type HandlerOnly<SD = any, TD = any, TR = any> = {
-  beforeAll?: BeforeAll<SD>;
+  beforeAll?: BeforeAll<SD, TD, TR>;
   handler: Handler<SD, TD, TR>;
 };
 
@@ -28,6 +31,10 @@ export type DeFlowStep<SD = any, TD = any, TR = any> = Partial<StepOptions> &
     onHandlerError?: (task: Task<TD, TR>, error: Error) => Promise<void>;
     afterEach?: (task: Task<TD, TR>, step: Step<SD>) => Promise<void>;
     afterAll?: (step: Step<SD>) => Promise<void>;
+    // Public types access: allow retrieve types by doing DeFlowStep['StepData']
+    StepData?: SD;
+    TaskData?: TD;
+    TaskResult?: TR;
   };
 
 export type ESD<T> = T extends DeFlowStep<infer SD, any, any> ? SD : never;
@@ -67,7 +74,7 @@ export type JSONStep<T = any> = {
   index: number;
   taskCount: number;
 
-  data: ESD<T>;
+  data?: ESD<T>;
   options: StepOptions;
 
   workflowId: string;
@@ -93,7 +100,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   public id: string;
   public name: string;
   public index: number;
-  public data: SD;
+  public data?: SD;
 
   public module: string;
   public moduleFn?: HandlerFn;
@@ -252,6 +259,8 @@ export default class Step<SD = any, TD = any, TR = any> {
    * TODO: temp implementation of method signature, refact it to make it work
    * Add Multiple steps after the current one
    */
+  public async addAfter<T = any>(data: AddStep<T>[]): Promise<void>;
+  public async addAfter<T = any>(...data: AddStep<T>[]): Promise<void>;
   public async addAfter<T = any, T2 = any>(...data: [AddStep<T>, AddStep<T2>]): Promise<void>;
   public async addAfter<T = any, T2 = any, T3 = any>(
     ...data: [AddStep<T>, AddStep<T2>, AddStep<T3>]
@@ -270,7 +279,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @public
    * Add a step after the current one
    */
-  public async addAfter<T = any>(...data: AddStep<T>[]): Promise<void> {
+  public async addAfter<T = any>(data: AddStep<T>[] | AddStep<T>): Promise<void> {
     let steps = data;
     if (!Array.isArray(steps)) {
       steps = [steps];
@@ -329,7 +338,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     return new Promise((resolve) => {
       const max = `(${this.index}`;
 
-      this.#deflow.client.sendCommand(
+      this.#deflow.client.send_command(
         'ZRANGE',
         [this.#doneList, max, '+inf', 'BYSCORE', 'LIMIT', 0, 3],
         (err, reply: string[]) => {
@@ -415,7 +424,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       lockArgs.push('PX', taskTimeout + 1000);
     }
 
-    await this.#deflow.client.sendCommand('SET', lockArgs);
+    await this.#deflow.client.send_command('SET', lockArgs);
     await this.#deflow.client.zadd(DeFlow.processQueue, score, JSON.stringify(task));
 
     // Run the task
