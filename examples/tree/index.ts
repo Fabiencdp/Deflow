@@ -1,31 +1,32 @@
 import * as path from 'path';
 
 import DeFlow, { WorkFlow } from '../../src';
+import { step1Module } from './steps/step-1';
+import Module from '../../src/lib/Module';
+import StepHandler from '../../src/lib/StepHandler';
+import step2 from '../simple/steps/step-2';
 
 console.clear();
 
 DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
 
 setTimeout(() => {
-  createSimpleWorkflow();
+  createTreeWorkflow();
 }, 2000);
 
 /**
  * Workflow test file
  */
-async function createSimpleWorkflow(): Promise<void> {
-  const steps = [
+function createTreeWorkflow(): void {
+  WorkFlow.create('w', [
     {
-      name: 'STEP 1',
-      module: path.resolve(__dirname, './steps/step-1'),
-      data: { toCreate: 4 },
+      name: 'step 1',
+      module: step1Module,
+      data: { toCreate: 1000 },
     },
     {
-      name: 'STEP 2',
-      module: path.resolve(__dirname, './steps/step-2'),
+      name: 'step 2',
+      module: step2,
     },
-  ];
-
-  const wfl = await WorkFlow.create('simple', steps);
-  await wfl.run();
+  ]).run();
 }

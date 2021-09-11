@@ -5,6 +5,7 @@ import Task, { JSONTask } from './Task';
 import WorkFlow from './WorkFlow';
 
 import DeFlow from './index';
+import StepHandler from './StepHandler';
 
 const debug = Debug('deflow:step');
 
@@ -43,10 +44,10 @@ export type ETR<T> = T extends DeFlowStep<any, any, infer TR> ? TR : never;
 
 export type AddStep<T = any> = {
   name: string;
+  module: string | StepHandler;
   data?: ESD<T>;
   tasks?: ETD<T>[];
   steps?: AddStep[];
-  module: string;
   options?: Partial<StepOptions>;
 };
 
@@ -159,12 +160,13 @@ export default class Step<SD = any, TD = any, TR = any> {
     }
 
     // Create step modules
-    const module = await Step.getModule(data.module);
+    const { module, path } = await Step.getModule(data.module);
     if (!data.moduleFn) {
       if (typeof module.beforeAll === 'function') {
         await Step.create({
           ...data,
           name: [data.name, 'beforeAll'].join(':'),
+          module: path,
           moduleFn: 'beforeAll',
           index: data.index + 0.1,
           parentKey: key,
@@ -177,6 +179,7 @@ export default class Step<SD = any, TD = any, TR = any> {
         await Step.create({
           ...data,
           name: [data.name, 'afterAll'].join(':'),
+          module: path,
           moduleFn: 'afterAll',
           index: data.index - 0.1,
           parentKey: key,
@@ -203,7 +206,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       key,
       index: data.index,
       name: data.name,
-      module: data.module,
+      module: path,
       data: data.data,
       moduleFn: data.moduleFn,
       workflowId: data.workflowId,
@@ -259,7 +262,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * TODO: temp implementation of method signature, refact it to make it work
    * Add Multiple steps after the current one
    */
-  public async addAfter<T = any>(data: AddStep<T>[]): Promise<void>;
+  public async addAfter<T = any>(data: AddStep<T>): Promise<void>;
   public async addAfter<T = any>(...data: AddStep<T>[]): Promise<void>;
   public async addAfter<T = any, T2 = any>(...data: [AddStep<T>, AddStep<T2>]): Promise<void>;
   public async addAfter<T = any, T2 = any, T3 = any>(
@@ -452,7 +455,7 @@ export default class Step<SD = any, TD = any, TR = any> {
 
     // Run after each method
     if (this.moduleFn === 'module') {
-      const module = await this.#getModule();
+      const { module } = await this.#getModule();
       if (module && typeof module.afterEach === 'function') {
         await module.afterEach(task, this);
       }
@@ -464,13 +467,21 @@ export default class Step<SD = any, TD = any, TR = any> {
   /**
    * @private
    */
-  static async getModule(path: string): Promise<DeFlowStep> {
+  static async getModule(
+    path: string | StepHandler
+  ): Promise<{ path: string; module: DeFlowStep }> {
     try {
+      if (path instanceof StepHandler) {
+        path = path.getPath();
+      }
       const module: DeFlowStep = await import(path).then((m) => m.default);
       if (!module || (!module.handler && !module.beforeAll)) {
-        throw new Error(`Module is not valid: ${path}`);
+        throw new Error(
+          `Module does not exist at path: ${path}, did you forgot to export the step as default?`
+        );
       }
-      return module;
+
+      return { path, module };
     } catch (e) {
       console.error(e.message);
       throw e;
@@ -493,7 +504,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   /**
    * Get the module from module
    */
-  async #getModule(): Promise<DeFlowStep> {
+  async #getModule(): Promise<{ module: DeFlowStep; path: string }> {
     return Step.getModule(this.module);
   }
 
@@ -501,7 +512,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @private
    */
   async #runTaskHandler(task: Task): Promise<any> {
-    const module = await this.#getModule();
+    const { module } = await this.#getModule();
     if (!module) {
       return Promise.reject('Invalid module');
     }
@@ -560,7 +571,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @param error
    */
   async #runOnHandlerError(task: Task, error: Error): Promise<any> {
-    const module = await Step.getModule(this.module);
+    const { module } = await Step.getModule(this.module);
     if (typeof module.onHandlerError === 'function') {
       module.onHandlerError(task, error);
     }
@@ -622,7 +633,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   async #removeIfDone(): Promise<boolean> {
     debug('removeIfDone');
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.#deflow.client.llen(this.#taskDoneQueue, (err, reply) => {
         if (reply !== this.taskCount) {
           debug(`${reply}/${this.taskCount} tasks not done`);

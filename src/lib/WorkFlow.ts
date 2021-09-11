@@ -5,6 +5,8 @@ import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 
 import DeFlow from './index';
+import Module from './Module';
+import StepHandler from './StepHandler';
 
 const debug = Debug('deflow:workflow');
 
@@ -69,7 +71,6 @@ export default class WorkFlow {
     if (Array.isArray(steps) && steps.length > 0) {
       workFlow.#addedSteps = steps;
     }
-
     return workFlow;
   }
 

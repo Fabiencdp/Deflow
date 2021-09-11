@@ -1,20 +1,31 @@
 import { DeFlowStep } from '../../../src';
+import StepHandler2 from '../../../src/lib/StepHandler2';
+import StepHandler from '../../../src/lib/StepHandler';
 
 export type SimpleStep2 = DeFlowStep<void, number, number>;
 
 /**
  * This step will show timeout error can be handled
  */
-const step2: SimpleStep2 = {
-  taskTimeout: 4000,
-  taskMaxFailCount: 3,
+const step2 = StepHandler2({
+  // options: {
+  //   taskTimeout: 4000,
+  //   taskMaxFailCount: 3,
+  // },
+
+  // data: [1],
+  // tasks: [{ a: 1 }],
 
   /**
    * Get previous results
    */
   async beforeAll(step) {
+    console.log('Step2: beforeAll');
+    // options1;
+    // const a = this.options1;
+    // console.log(step);
+
     const prev = await step.getPrevious();
-    console.log(prev);
     if (prev) {
       const results = await prev.getResults();
       const nextTasks = results.map((r) => r.result);
@@ -43,9 +54,11 @@ const step2: SimpleStep2 = {
    * @param error
    */
   async onHandlerError(task, error) {
+    // const a = this.a;
+    const a = this.options.taskMaxFailCount;
     console.log(
       `Step2: onHandlerError`,
-      `${task.failedCount}/${this.taskMaxFailCount} fail`,
+      `${task.failedCount}/${this.options.taskMaxFailCount} fail`,
       error.message
     );
   },
@@ -62,7 +75,7 @@ const step2: SimpleStep2 = {
     console.log(`Step2: afterAll\n${success.length} success\n${errors.length} errors:`);
     console.log(errors);
   },
-};
+});
 
 // Export as default
 export default step2;
