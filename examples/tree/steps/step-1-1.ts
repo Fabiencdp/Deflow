@@ -1,11 +1,11 @@
-import { DeFlowStep } from '../../../src';
+import StepHandler from '../../../src/lib/StepHandler';
 
-export type Step1_1 = DeFlowStep<void, string, void>;
-
-const step1_1: Step1_1 = {
-  taskTimeout: 4500,
-  taskMaxFailCount: 1,
-  taskConcurrency: 2,
+const step1_1 = new StepHandler<void, string, void>({
+  options: {
+    taskTimeout: 4500,
+    taskMaxFailCount: 1,
+    taskConcurrency: 2,
+  },
 
   /**
    * A some tasks
@@ -27,8 +27,8 @@ const step1_1: Step1_1 = {
 
   async afterAll() {
     console.log('Step-1.1: afterAll');
-    await new Promise((r) => setTimeout(() => r(null), 8000));
+    await new Promise((r) => setTimeout(() => r(null), 2000));
   },
-};
+});
 
 export default step1_1;

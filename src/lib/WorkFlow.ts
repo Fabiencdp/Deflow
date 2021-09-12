@@ -1,12 +1,12 @@
 import Debug from 'debug';
 import { generate } from 'short-uuid';
+import slugify from 'slugify';
 
 import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
+import StepHandler from './StepHandler';
 
 import DeFlow from './index';
-import Module from './Module';
-import StepHandler from './StepHandler';
 
 const debug = Debug('deflow:workflow');
 
@@ -47,8 +47,9 @@ export default class WorkFlow {
     this.options = json.options;
   }
 
-  static create(name: string, steps: AddStep[], opts?: Partial<WorkFlowOption>): WorkFlow;
+  static create(name: string): WorkFlow;
   static create(name: string, opts: Partial<WorkFlowOption>): WorkFlow;
+  static create(name: string, steps: AddStep[], opts?: Partial<WorkFlowOption>): WorkFlow;
 
   /**
    * Create and save new workflow
@@ -58,7 +59,7 @@ export default class WorkFlow {
    */
   static create(
     name: string,
-    steps: AddStep[] | Partial<WorkFlowOption>,
+    steps?: AddStep[] | Partial<WorkFlowOption>,
     opts: Partial<WorkFlowOption> = {}
   ): WorkFlow {
     const id = [name, generate()].join(':');
@@ -152,10 +153,29 @@ export default class WorkFlow {
 
   /**
    * Add a step to the current workflow
-   * @param stepData
+   * @param step
+   * @param data
+   * @param tasks
+   * @param options
    */
-  public addStep<T = unknown>(stepData: AddStep<T>): WorkFlow {
-    this.#addedSteps.push(stepData);
+  public addStep<T extends StepHandler>(
+    step: T,
+    {
+      data,
+      tasks,
+      options,
+    }: { data: typeof step['data']; tasks?: typeof step['tasks']; options?: Partial<StepOptions> }
+  ): WorkFlow {
+    const name = [step.filename, this.#addedSteps.length].join('-');
+
+    this.#addedSteps.push({
+      module: step,
+      name: slugify(name),
+      data,
+      tasks,
+      options,
+    });
+
     return this;
   }
 
@@ -213,9 +233,22 @@ export default class WorkFlow {
    * Store added step sequentially, reverse order to keep good process order
    */
   async #storeSteps(): Promise<void> {
+    console.log('store', this.#addedSteps);
     await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data) => {
       await prev;
-      return Step.create({ ...data, index: new Date().getTime(), workflowId: this.id });
+
+      let options = data.module.options;
+      if (data.options) {
+        options = { ...options, ...data.options };
+      }
+
+      return Step.create({
+        ...data,
+        module: data.module.path,
+        index: new Date().getTime(),
+        workflowId: this.id,
+        options,
+      });
     }, Promise.resolve());
   }
 

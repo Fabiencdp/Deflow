@@ -1,21 +1,9 @@
-import { DeFlowStep } from '../../../src';
-import StepHandler2 from '../../../src/lib/StepHandler2';
 import StepHandler from '../../../src/lib/StepHandler';
-
-export type SimpleStep2 = DeFlowStep<void, number, number>;
 
 /**
  * This step will show timeout error can be handled
  */
-const step2 = StepHandler2({
-  // options: {
-  //   taskTimeout: 4000,
-  //   taskMaxFailCount: 3,
-  // },
-
-  // data: [1],
-  // tasks: [{ a: 1 }],
-
+const step2 = new StepHandler<void, number, number>({
   /**
    * Get previous results
    */

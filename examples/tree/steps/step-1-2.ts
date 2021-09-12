@@ -1,24 +1,31 @@
-import { DeFlowStep } from '../../../src';
+import StepHandler from '../../../src/lib/StepHandler';
 
-export type Step1_2 = DeFlowStep<void, number, void>;
+export default new StepHandler<void, number, void>({
+  options: {
+    taskTimeout: 2500,
+    taskMaxFailCount: 2,
+  },
 
-const step1_2: Step1_2 = {
-  taskTimeout: 4600,
-  taskMaxFailCount: 2,
+  async beforeAll(step) {
+    console.log('Step-1.2: beforeAll');
+    await step.addTasks([1, 2, 3, 4, 5, 6]);
+  },
 
   async handler(task) {
     console.log('Step-1.2: handler', task.data);
-    await new Promise((r) => setTimeout(() => r(null), 4000 + Math.random() * 1000));
+    await new Promise((r) => setTimeout(() => r(null), Math.random() * (4000 - 1000) + 1000));
   },
 
-  async onHandlerError(task, error) {
-    console.log(error);
+  async onHandlerError(task, step, error) {
     console.log(
       `Step-1-2: onHandlerError`,
-      `${task.failedCount}/${this.taskMaxFailCount} fail`,
+      `${task.failedCount}/${step.options.taskMaxFailCount} fail`,
       error.message
     );
   },
-};
 
-export default step1_2;
+  async afterAll(step) {
+    console.log('Step-1.2: afterAll');
+    console.log(await step.getResults());
+  },
+});
