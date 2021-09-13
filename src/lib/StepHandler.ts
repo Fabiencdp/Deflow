@@ -5,6 +5,8 @@ import Task from './Task';
 
 const debug = Debug('StepHandler');
 
+export type StepHandlerFn = 'module' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
+
 export type StepHandlerDefinition<SD, TD, TR> = {
   beforeAll?: (step: Step<SD, TD, TR>) => any | Promise<any>;
   handler?: (task: Task<TD, TR>, step: Step<SD, TD, TR>) => any | Promise<any>;

@@ -1,8 +1,6 @@
-import { DeFlowStep } from '../../../src';
+import StepHandler from '../../../src/lib/StepHandler';
 
-export type SimpleStep1 = DeFlowStep<void, string, number>;
-
-const step1: SimpleStep1 = {
+export default new StepHandler<undefined, string, number>({
   /**
    * Task handler
    * @param task
@@ -31,6 +29,4 @@ const step1: SimpleStep1 = {
     console.log('Step1: AF ALL', await step.getProgress());
     // console.log('Step1: Result', task.result);
   },
-};
-
-export default step1;
+});

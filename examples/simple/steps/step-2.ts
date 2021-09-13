@@ -3,7 +3,7 @@ import StepHandler from '../../../src/lib/StepHandler';
 /**
  * This step will show timeout error can be handled
  */
-const step2 = new StepHandler<void, number, number>({
+export default new StepHandler<{ something: string }, number, number>({
   /**
    * Get previous results
    */
@@ -41,12 +41,10 @@ const step2 = new StepHandler<void, number, number>({
    * @param task
    * @param error
    */
-  async onHandlerError(task, error) {
-    // const a = this.a;
-    const a = this.options.taskMaxFailCount;
+  async onHandlerError(task, step, error) {
     console.log(
       `Step2: onHandlerError`,
-      `${task.failedCount}/${this.options.taskMaxFailCount} fail`,
+      `${task.failedCount}/${step.options.taskMaxFailCount} fail`,
       error.message
     );
   },
@@ -64,6 +62,3 @@ const step2 = new StepHandler<void, number, number>({
     console.log(errors);
   },
 });
-
-// Export as default
-export default step2;

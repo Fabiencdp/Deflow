@@ -6,14 +6,17 @@ import step1_2 from './step-1-2';
 /**
  *
  */
-const step1 = new StepHandler<{ toCreate: number }, number, void>({
+export default new StepHandler<{ toCreate: number }, number, void>({
   options: {
-    taskTimeout: 3000,
+    taskTimeout: 88888,
     taskMaxFailCount: 3,
   },
 
   async beforeAll(step) {
     const arr = Array.from(Array(step.data.toCreate).keys());
+
+    console.log(step.options);
+
     return step.addTasks(arr);
   },
 
@@ -24,14 +27,11 @@ const step1 = new StepHandler<{ toCreate: number }, number, void>({
 
   async afterEach(task, step) {
     console.log('Step1: afterEach', await step.getProgress());
-    console.log('timeout', step.options.taskTimeout);
   },
 
   async afterAll(step) {
     console.log('Step1: afterAll');
-    await step.addAfter(step1_1);
-    await step.addAfter(step1_2);
+    await step.addAfter({ step: step1_1 });
+    await step.addAfter({ step: step1_2 });
   },
 });
-
-export default step1;

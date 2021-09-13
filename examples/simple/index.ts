@@ -2,8 +2,8 @@ import * as path from 'path';
 
 import DeFlow, { WorkFlow } from '../../src';
 
-import { SimpleStep2 } from './steps/step-2';
-import { SimpleStep1 } from './steps/step-1';
+import step1 from './steps/step-1';
+import step2 from './steps/step-2';
 
 console.clear();
 
@@ -18,14 +18,9 @@ setTimeout(() => {
  */
 async function createSimpleWorkflow(): Promise<void> {
   await WorkFlow.create('simple', { ifExist: 'replace' })
-    .addStep<SimpleStep1>({
-      name: 'step1: Parser',
-      module: path.resolve(__dirname, './steps/step-1'),
+    .addStep(step1, {
       tasks: ['1.1', '2.4', '2.89', '10', '5'],
     })
-    .addStep<SimpleStep2>({
-      name: 'Step2: Transformer',
-      module: path.resolve(__dirname, './steps/step-2'),
-    })
+    .addStep(step2, { data: { something: '' } })
     .run();
 }

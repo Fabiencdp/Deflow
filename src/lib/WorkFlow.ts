@@ -2,7 +2,7 @@ import Debug from 'debug';
 import { generate } from 'short-uuid';
 import slugify from 'slugify';
 
-import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
+import Step, { AddStepC, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import StepHandler from './StepHandler';
 
@@ -34,7 +34,7 @@ export default class WorkFlow {
   /**
    * Temp in memory store
    */
-  #addedSteps: AddStep[] = [];
+  #addedSteps: AddStepC[] = [];
 
   /**
    * Create a workflow from json
@@ -49,7 +49,7 @@ export default class WorkFlow {
 
   static create(name: string): WorkFlow;
   static create(name: string, opts: Partial<WorkFlowOption>): WorkFlow;
-  static create(name: string, steps: AddStep[], opts?: Partial<WorkFlowOption>): WorkFlow;
+  static create(name: string, steps: AddStepC[], opts?: Partial<WorkFlowOption>): WorkFlow;
 
   /**
    * Create and save new workflow
@@ -59,10 +59,10 @@ export default class WorkFlow {
    */
   static create(
     name: string,
-    steps?: AddStep[] | Partial<WorkFlowOption>,
+    steps?: AddStepC[] | Partial<WorkFlowOption>,
     opts: Partial<WorkFlowOption> = {}
   ): WorkFlow {
-    const id = [name, generate()].join(':');
+    const id = slugify([name, generate()].join(':'));
     const queueId = [id, 'steps'].join(':');
 
     const inputOpts = typeof steps === 'object' && !Array.isArray(steps) ? steps : opts;
@@ -153,28 +153,17 @@ export default class WorkFlow {
 
   /**
    * Add a step to the current workflow
-   * @param step
-   * @param data
-   * @param tasks
-   * @param options
+   * @param params
    */
-  public addStep<T extends StepHandler>(
-    step: T,
-    {
-      data,
-      tasks,
-      options,
-    }: { data: typeof step['data']; tasks?: typeof step['tasks']; options?: Partial<StepOptions> }
-  ): WorkFlow {
-    const name = [step.filename, this.#addedSteps.length].join('-');
+  public addStep<T extends StepHandler>(params: AddStepC<T>): WorkFlow {
+    const { step, options, tasks } = params;
 
-    this.#addedSteps.push({
-      module: step,
-      name: slugify(name),
-      data,
-      tasks,
-      options,
-    });
+    let data = undefined;
+    if (params && 'data' in params) {
+      data = (params as any).data as T['data']; // Fix complex type error
+    }
+
+    this.#addedSteps.push({ step, data, tasks, options });
 
     return this;
   }
@@ -233,18 +222,18 @@ export default class WorkFlow {
    * Store added step sequentially, reverse order to keep good process order
    */
   async #storeSteps(): Promise<void> {
-    console.log('store', this.#addedSteps);
     await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data) => {
       await prev;
 
-      let options = data.module.options;
+      // TODO: remove
+      let options = data.step.options;
       if (data.options) {
         options = { ...options, ...data.options };
       }
 
       return Step.create({
         ...data,
-        module: data.module.path,
+        module: data.step.path,
         index: new Date().getTime(),
         workflowId: this.id,
         options,

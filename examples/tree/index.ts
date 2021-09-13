@@ -1,6 +1,7 @@
 import DeFlow, { WorkFlow } from '../../src';
 
 import step1 from './steps/step-1';
+import step2 from './steps/step-2';
 
 DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
 
@@ -13,6 +14,7 @@ setTimeout(() => {
  */
 function createTreeWorkflow(): void {
   WorkFlow.create('w')
-    .addStep(step1, { data: { toCreate: 3 } })
+    .addStep({ step: step1, data: { toCreate: 5 } })
+    .addStep({ step: step2 })
     .run();
 }

@@ -1,68 +1,38 @@
 import Debug from 'debug';
 import { generate } from 'short-uuid';
+import slugify from 'slugify';
 
 import Task, { JSONTask } from './Task';
 import WorkFlow from './WorkFlow';
-import StepHandler from './StepHandler';
+import StepHandler, { StepHandlerFn } from './StepHandler';
 
 import DeFlow from './index';
 
 const debug = Debug('deflow:step');
 
-type HandlerFn = 'module' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
-
-type BeforeAll<SD = any, D = any, R = any> = (step: Step<SD, D, R>) => Promise<void>;
-type Handler<SD = any, D = any, R = any> = (
-  task: Task<D, R>,
-  step: Step<SD, D, R>
-) => Promise<void | R>;
-
-type BeforeAllOnly<SD = any, TD = any, TR = any> = {
-  beforeAll: BeforeAll<SD, TD, TR>;
-  handler?: Handler<SD, TD, TR>;
-};
-
-type HandlerOnly<SD = any, TD = any, TR = any> = {
-  beforeAll?: BeforeAll<SD, TD, TR>;
-  handler: Handler<SD, TD, TR>;
-};
-
-export type DeFlowStep<SD = any, TD = any, TR = any> = Partial<StepOptions> &
-  (BeforeAllOnly<SD, TD, TR> | HandlerOnly<SD, TD, TR>) & {
-    onHandlerError?: (task: Task<TD, TR>, step: Step<SD>, error: Error) => Promise<void>;
-    afterEach?: (task: Task<TD, TR>, step: Step<SD>) => Promise<void>;
-    afterAll?: (step: Step<SD>) => Promise<void>;
-    // Public types access: allow retrieve types by doing DeFlowStep['StepData']
-    StepData?: SD;
-    TaskData?: TD;
-    TaskResult?: TR;
-  };
-
-export type ESD<T> = T extends DeFlowStep<infer SD> ? SD : never;
-export type ETD<T> = T extends DeFlowStep<any, infer TD> ? TD : never;
-export type ETR<T> = T extends DeFlowStep<any, any, infer TR> ? TR : never;
-
-type AddStepModule = {
-  module: StepHandler;
-};
-
-export type AddStep = AddStepModule & {
-  name: string;
-  data: AddStepModule['module']['data'];
-  tasks?: AddStepModule['module']['tasks'];
+type AddStepWithoutData<T extends StepHandler> = {
+  step: T;
+  tasks?: T['tasks'];
   options?: Partial<StepOptions>;
 };
 
+type AddStepWithData<T extends StepHandler> = AddStepWithoutData<T> & {
+  data: T['data'];
+};
+
+export type AddStepC<T extends StepHandler = any> = T['data'] extends undefined | void
+  ? AddStepWithoutData<T>
+  : AddStepWithData<T>;
+
 export type CreateStep<SD = any, TD = any> = {
-  name: string;
+  name?: string;
   data?: SD;
   tasks?: TD[];
-  steps?: AddStep[];
   options?: Partial<StepOptions>;
   module: string;
 } & {
   workflowId: string;
-  moduleFn?: HandlerFn;
+  moduleFn?: StepHandlerFn;
   parentKey?: string;
   index: number;
 };
@@ -74,17 +44,17 @@ export type JSONStepListItem = {
   parentKey: string;
 };
 
-export type JSONStep<T = any> = {
+export type JSONStep<SD = any> = {
   id: string;
   name: string;
 
   module: string;
-  moduleFn?: HandlerFn;
+  moduleFn?: StepHandlerFn;
 
   index: number;
   taskCount: number;
 
-  data: ESD<T>;
+  data: SD;
   options: StepOptions;
 
   workflowId: string;
@@ -116,7 +86,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   public data: SD;
 
   public module: string;
-  public moduleFn?: HandlerFn;
+  public moduleFn?: StepHandlerFn;
 
   public taskCount: number;
   public options = defaultStepOptions;
@@ -125,12 +95,14 @@ export default class Step<SD = any, TD = any, TR = any> {
   public key: string;
   public parentKey?: string;
 
+  #added: Step[] = [];
+
   #deflow = DeFlow.getInstance();
 
   /**
    * @param json
    */
-  constructor(json: JSONStep<DeFlowStep<SD, TD>>) {
+  constructor(json: JSONStep<SD>) {
     this.id = json.id;
     this.name = json.name;
     this.index = json.index;
@@ -172,7 +144,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     }
 
     // Create step modules
-    const { module, path } = await Step.getModule(data.module);
+    const { module, path, filename } = await Step.getModule(data.module);
     if (!data.moduleFn) {
       if (typeof module.beforeAll === 'function') {
         await Step.create({
@@ -182,7 +154,6 @@ export default class Step<SD = any, TD = any, TR = any> {
           moduleFn: 'beforeAll',
           index: data.index + 0.1,
           parentKey: key,
-          steps: undefined,
           tasks: [null],
         });
       }
@@ -195,7 +166,6 @@ export default class Step<SD = any, TD = any, TR = any> {
           moduleFn: 'afterAll',
           index: data.index - 0.1,
           parentKey: key,
-          steps: undefined,
           tasks: [null],
         });
       }
@@ -203,23 +173,14 @@ export default class Step<SD = any, TD = any, TR = any> {
       data.moduleFn = 'module';
     }
 
-    if (module.taskTimeout) {
-      options.taskTimeout = module.taskTimeout;
-    }
-    if (module.taskConcurrency) {
-      options.taskConcurrency = module.taskConcurrency;
-    }
-    if (module.taskMaxFailCount) {
-      options.taskMaxFailCount = module.taskMaxFailCount;
-    }
-
+    const name = slugify(data.name || filename);
     const stepInstance = new Step({
       id,
       key,
+      name,
       index: data.index,
-      name: data.name,
-      module: path,
       data: data.data,
+      module: path,
       moduleFn: data.moduleFn,
       workflowId: data.workflowId,
       parentKey: data.parentKey,
@@ -271,42 +232,40 @@ export default class Step<SD = any, TD = any, TR = any> {
 
   /**
    * @public
-   * TODO: temp implementation of method signature, refact it to make it work
-   * Add Multiple steps after the current one
-   */
-  // public async addAfter(data: AddStep): Promise<void>;
-  // public async addAfter(...data: AddStep[]): Promise<void>;
-  //
-  // /**
-  //  * @public
-  //  * Add a step after the current one
-  //  */
-  // public async addAfter(data: AddStep | AddStep[]): Promise<void> {
-  //   let steps = data;
-  //   if (!Array.isArray(steps)) {
-  //     steps = [steps];
-  //   }
-  //   return steps.reverse().reduce(async (prev, step) => {
-  //     await prev;
-  //     await this.#addAfter(step);
-  //   }, Promise.resolve());
-  // }
-  /**
-   * @public
    * Add a step after the current one
    */
-  public async addAfter<T extends StepHandler>(
-    step: T,
-    params?: {
-      data: typeof step['data'];
-      tasks?: typeof step['tasks'];
-      options?: Partial<StepOptions>;
+  public async addAfter<T extends StepHandler>(params: AddStepC<T>): Promise<Step> {
+    const { options, tasks, step } = params;
+    let data = undefined;
+    if (params && 'data' in params) {
+      data = (params as any).data; // Fix complex type error
     }
-  ): Promise<Step> {
-    return this.#addAfter(step, params);
-  }
 
-  added: Step[] = [];
+    let index = new Date().getTime();
+
+    // Re-define steps score when adding one by one
+    if (this.#added.length > 0) {
+      index = this.#added[this.#added.length - 1].index - 1;
+    }
+
+    const name = [step.filename, index].join('-');
+
+    const next = await Step.create({
+      ...step,
+      index,
+      options,
+      data,
+      tasks,
+      name: slugify(name),
+      module: step.path,
+      workflowId: this.workflowId,
+      parentKey: this.key,
+    });
+
+    this.#added.push(next);
+
+    return next;
+  }
 
   /**
    * Add task to the step module
@@ -449,7 +408,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     let dest = this.#taskDoneQueue;
     try {
       task.result = await this.#runTaskHandler(task);
-    } catch (e) {
+    } catch (e: any) {
       const error = typeof e === 'string' ? new Error(e) : e;
       task.error = error.message;
       task.failedCount = task.failedCount + 1;
@@ -484,70 +443,31 @@ export default class Step<SD = any, TD = any, TR = any> {
    */
   static async getModule(
     path: string | StepHandler
-  ): Promise<{ path: string; module: DeFlowStep }> {
+  ): Promise<{ path: string; module: StepHandler; filename: string }> {
     try {
       if (path instanceof StepHandler) {
         path = path.path;
       }
-      const module: DeFlowStep = await import(path).then((m) => m.default);
+
+      const filename = path.split('/').pop() || '';
+      const module: StepHandler = await import(path).then((m) => m.default);
       if (!module || (!module.handler && !module.beforeAll)) {
         throw new Error(
           `Module does not exist at path: ${path}, did you forgot to export the step as default?`
         );
       }
 
-      return { path, module };
-    } catch (e) {
+      return { path, module, filename };
+    } catch (e: any) {
       console.error(e.message);
       throw e;
     }
   }
 
   /**
-   * @param step
-   * @param params
-   */
-  async #addAfter<T extends StepHandler>(
-    step: T,
-    params?: {
-      data: typeof step['data'];
-      tasks?: typeof step['tasks'];
-      options?: Partial<StepOptions>;
-    }
-  ): Promise<Step<typeof step['data'], typeof step['tasks']>> {
-    let index = new Date().getTime();
-
-    // Re-order steps
-    if (this.added.length > 0) {
-      index = this.added[this.added.length - 1].index - 1;
-    }
-
-    let options = step.options || {};
-    if (params?.options) {
-      options = { ...options, ...params.options };
-    }
-
-    const next = await Step.create({
-      ...step,
-      index,
-      options,
-      name: index.toString(), // TODO
-      data: params?.data,
-      tasks: params?.tasks,
-      module: step.path,
-      workflowId: this.workflowId,
-      parentKey: this.key,
-    });
-
-    this.added.push(next);
-
-    return next;
-  }
-
-  /**
    * Get the module from module
    */
-  async #getModule(): Promise<{ module: DeFlowStep; path: string }> {
+  async #getModule(): Promise<{ module: StepHandler; path: string }> {
     return Step.getModule(this.module);
   }
 

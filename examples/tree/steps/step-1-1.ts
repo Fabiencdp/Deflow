@@ -1,8 +1,8 @@
 import StepHandler from '../../../src/lib/StepHandler';
 
-const step1_1 = new StepHandler<void, string, void>({
+export default new StepHandler<void, string, void>({
   options: {
-    taskTimeout: 4500,
+    taskTimeout: 9999,
     taskMaxFailCount: 1,
     taskConcurrency: 2,
   },
@@ -13,6 +13,8 @@ const step1_1 = new StepHandler<void, string, void>({
    */
   async beforeAll(step) {
     console.log('Step-1.1: BeforeAll');
+    console.log(step.options);
+
     return step.addTasks(['a', 'b', 'c']);
   },
 
@@ -30,5 +32,3 @@ const step1_1 = new StepHandler<void, string, void>({
     await new Promise((r) => setTimeout(() => r(null), 2000));
   },
 });
-
-export default step1_1;
