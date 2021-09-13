@@ -2,8 +2,13 @@ import StepHandler from '../../../src/lib/StepHandler';
 
 /**
  * This step will show timeout error can be handled
+ * StepHandler<
+ *    StepData: global step data type, useful to fetch data from a external source or DB
+ *    TaskData: task data type
+ *    TaskResult: task result type
+ * >
  */
-export default new StepHandler<{ something: string }, number, number>({
+export default new StepHandler<{ someData: string }, number, number>({
   /**
    * Get previous results
    */

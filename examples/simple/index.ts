@@ -1,5 +1,3 @@
-import * as path from 'path';
-
 import DeFlow, { WorkFlow } from '../../src';
 
 import step1 from './steps/step-1';
@@ -18,9 +16,7 @@ setTimeout(() => {
  */
 async function createSimpleWorkflow(): Promise<void> {
   await WorkFlow.create('simple', { ifExist: 'replace' })
-    .addStep(step1, {
-      tasks: ['1.1', '2.4', '2.89', '10', '5'],
-    })
-    .addStep(step2, { data: { something: '' } })
+    .addStep({ step: step1 })
+    .addStep({ step: step2, data: { someData: 'something' } })
     .run();
 }

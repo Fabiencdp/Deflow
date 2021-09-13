@@ -1,8 +1,22 @@
 import StepHandler from '../../../src/lib/StepHandler';
 
-export default new StepHandler<undefined, string, number>({
+/**
+ * Declare the step handler and types
+ * In this one, we convert string to float
+ * NOTE: IT MUST BE EXPORTED AS DEFAULT
+ */
+export default new StepHandler({
   /**
-   * Task handler
+   * Init method allow you to prepare tasks based on anything
+   * @param step
+   */
+  async beforeAll(step) {
+    const tasks = ['12', '10', '7', '45']; // You can fetch data from external souce or db
+    await step.addTasks(tasks);
+  },
+
+  /**
+   * This function will run for each task of the step
    * @param task
    */
   async handler(task) {
@@ -12,21 +26,23 @@ export default new StepHandler<undefined, string, number>({
   },
 
   /**
-   * Log result
+   * This method is executed after each tasks done
+   * Useful to log progress and stuff
    * @param task
    * @param step
    */
   async afterEach(task, step) {
     console.log('Step1: afterEach', await step.getProgress());
-    console.log('Step1: Result', task.result);
+    console.log('Step1: Result', task.result); // Should be a floating number
   },
 
   /**
-   * Log result
+   * This method is executed after all tasks done
+   * Useful to save results in a db or whatever you want
    * @param step
    */
   async afterAll(step) {
-    console.log('Step1: AF ALL', await step.getProgress());
-    // console.log('Step1: Result', task.result);
+    console.log('Step1: afterAll', await step.getProgress());
+    console.log('Step1: Result', await step.getResults());
   },
 });

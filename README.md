@@ -33,6 +33,95 @@ Tasks are configurable and can have timeout and retry strategy.
 - Compatible with TypeScript.
 - Dynamic handler declaration.
 
-Comming soon: 
-- Event that you can listen too
-- Nodes concurrency configuration
+### Coming next
+- More events that you can listen too
+- Advanced concurrency management
+
+### Getting started
+
+install:
+```
+npm i deflow
+```
+
+declare a step handler:
+```typescript
+// steps/string-to-number.ts 
+
+import { StepHandler } from 'deflow';
+  
+/**
+ * Declare the step handler and types
+ * In this one, we convert string to float
+ * NOTE: IT MUST BE EXPORTED AS DEFAULT
+ */
+  export default new StepHandler({
+
+    /**
+     * Init method allow you to prepare tasks based on anything
+     * @param step
+     */
+    async beforeAll(step) {
+      const tasks = ['12', '10', '7', '45']; // You can fetch data from external souce or db
+      await step.addTasks(tasks);
+    },
+  
+    /**
+     * This function will run for each task of the step
+     * @param task
+     */
+    async handler(task) {
+      console.log('Step1: handler', task.data);
+      await new Promise((r) => setTimeout(() => r(null), 1000));
+      return parseFloat(task.data);
+    },
+  
+    /**
+     * This method is executed after each tasks done
+     * Useful to log progress and stuff
+     * @param task
+     * @param step
+     */
+    async afterEach(task, step) {
+      console.log('Step1: afterEach', await step.getProgress());
+      console.log('Step1: Result', task.result); // Should be a floating number
+    },
+  
+    /**
+     * This method is executed after all tasks done
+     * Useful to save results in a db or whatever you want
+     * @param step
+     */
+    async afterAll(step) {
+      console.log('Step1: afterAll', await step.getProgress());
+      console.log('Step1: Result', await step.getResults());
+    },
+  });
+```
+
+declare a workflow:
+```typescript
+// index.ts 
+
+import DeFlow, { WorkFlow } from 'deflow';
+
+import stringToNumber from './steps/string-to-number';
+import antherProcessStep from './steps/anther-process-step';
+
+// Register deflow to your redis backend  
+DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
+
+/**
+ * Workflow test file
+ */
+function runWorkflow() {
+  WorkFlow
+    .create('some-name') // Some custom name 
+    .addStep({ step: stringToNumber }) // Register the step
+    .addStep({ step: antherProcessStep }) // Register the step
+    .run();
+}
+
+// Run the workflow from somewhere in your code 
+runWorkflow();
+```
