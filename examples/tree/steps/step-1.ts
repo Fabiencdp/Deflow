@@ -8,15 +8,12 @@ import step1_2 from './step-1-2';
  */
 export default new StepHandler<{ toCreate: number }, number, void>({
   options: {
-    taskTimeout: 88888,
+    taskTimeout: 4000,
     taskMaxFailCount: 3,
   },
 
   async beforeAll(step) {
     const arr = Array.from(Array(step.data.toCreate).keys());
-
-    console.log(step.options);
-
     return step.addTasks(arr);
   },
 

@@ -2,7 +2,6 @@ import StepHandler from '../../../src/lib/StepHandler';
 
 export default new StepHandler<void, string, void>({
   options: {
-    taskTimeout: 9999,
     taskMaxFailCount: 1,
     taskConcurrency: 2,
   },

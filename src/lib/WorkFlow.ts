@@ -225,18 +225,12 @@ export default class WorkFlow {
     await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data) => {
       await prev;
 
-      // TODO: remove
-      let options = data.step.options;
-      if (data.options) {
-        options = { ...options, ...data.options };
-      }
-
       return Step.create({
         ...data,
-        module: data.step.path,
+        module: data.step,
+        options: data.options,
         index: new Date().getTime(),
         workflowId: this.id,
-        options,
       });
     }, Promise.resolve());
   }

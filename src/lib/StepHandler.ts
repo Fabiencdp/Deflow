@@ -1,6 +1,6 @@
 import Debug from 'debug';
 
-import Step, { defaultStepOptions, StepOptions } from './Step';
+import Step, { StepOptions } from './Step';
 import Task from './Task';
 
 const debug = Debug('StepHandler');
@@ -48,7 +48,7 @@ export default class StepHandler<SD = any, TD = any, TR = any> {
     this.data = def.data;
     this.tasks = def.tasks;
 
-    this.options = { ...defaultStepOptions, ...def.options };
+    this.options = def.options;
 
     const { filename, path } = this.getModuleInfo();
     this.path = path;

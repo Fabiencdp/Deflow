@@ -29,7 +29,7 @@ export type CreateStep<SD = any, TD = any> = {
   data?: SD;
   tasks?: TD[];
   options?: Partial<StepOptions>;
-  module: string;
+  module: StepHandler;
 } & {
   workflowId: string;
   moduleFn?: StepHandlerFn;
@@ -69,7 +69,7 @@ export type StepOptions = {
   taskFailRetryDelay: number | null;
 };
 
-export const defaultStepOptions: StepOptions = {
+const defaultStepOptions: StepOptions = {
   taskTimeout: 0,
   taskConcurrency: 1,
   taskMaxFailCount: 1,
@@ -139,18 +139,23 @@ export default class Step<SD = any, TD = any, TR = any> {
       options = { ...options, ...workFlow.options };
     }
 
+    if (data.module.options) {
+      options = { ...options, ...data.module.options };
+    }
+
     if (data.options) {
       options = { ...options, ...data.options };
     }
 
     // Create step modules
     const { module, path, filename } = await Step.getModule(data.module);
+
     if (!data.moduleFn) {
       if (typeof module.beforeAll === 'function') {
         await Step.create({
           ...data,
+          module,
           name: [data.name, 'beforeAll'].join(':'),
-          module: path,
           moduleFn: 'beforeAll',
           index: data.index + 0.1,
           parentKey: key,
@@ -161,8 +166,8 @@ export default class Step<SD = any, TD = any, TR = any> {
       if (typeof module.afterAll === 'function') {
         await Step.create({
           ...data,
+          module,
           name: [data.name, 'afterAll'].join(':'),
-          module: path,
           moduleFn: 'afterAll',
           index: data.index - 0.1,
           parentKey: key,
@@ -251,13 +256,12 @@ export default class Step<SD = any, TD = any, TR = any> {
     const name = [step.filename, index].join('-');
 
     const next = await Step.create({
-      ...step,
       index,
       options,
       data,
       tasks,
       name: slugify(name),
-      module: step.path,
+      module: step,
       workflowId: this.workflowId,
       parentKey: this.key,
     });
