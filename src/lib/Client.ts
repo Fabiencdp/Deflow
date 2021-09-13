@@ -12,7 +12,7 @@ export default class Client extends RedisClient {
   public static createRedisClient(options: DeFlowOptions): RedisClient {
     const { connection } = options;
 
-    let attempts = 1;
+    let attempts = 0;
     const maxAttempts = 10;
 
     const client = redis.createClient({
@@ -35,7 +35,8 @@ export default class Client extends RedisClient {
       attempts += 1;
       debug('clientError', attempts, e);
       if (attempts >= maxAttempts) {
-        throw new Error(e);
+        const error = new Error(e);
+        throw error;
       }
     });
 

@@ -12,8 +12,6 @@ export default new StepHandler<void, string, void>({
    */
   async beforeAll(step) {
     console.log('Step-1.1: BeforeAll');
-    console.log(step.options);
-
     return step.addTasks(['a', 'b', 'c']);
   },
 

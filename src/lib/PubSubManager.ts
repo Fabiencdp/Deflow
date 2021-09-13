@@ -1,3 +1,5 @@
+import EventEmitter from 'events';
+
 import WorkFlow from './WorkFlow';
 
 import DeFlow from './index';
@@ -5,6 +7,7 @@ import DeFlow from './index';
 export enum Action {
   NextStep,
   NextTask,
+  Done,
 }
 type Signal = {
   publisherId: string;
@@ -26,10 +29,19 @@ type SignalNextTask = Signal & {
   };
 };
 
-type Signals = SignalNextStep | SignalNextTask;
+type SignalDone = Signal & {
+  action: Action.Done;
+  data: {
+    workflowId: string;
+  };
+};
+
+type Signals = SignalNextStep | SignalNextTask | SignalDone;
 
 export default class PubSubManager {
   private static channel = 'dfw';
+
+  static emitter = new EventEmitter();
 
   /**
    * Subscribe to any event
@@ -41,18 +53,37 @@ export default class PubSubManager {
       const signal: Signals = JSON.parse(json);
 
       const deFlow = DeFlow.getInstance();
-      if (signal.publisherId === deFlow.id) {
-        return;
-      }
 
-      switch (signal.action) {
-        case Action.NextStep:
-          PubSubManager.nextStep(signal);
-          break;
+      if (signal.publisherId === deFlow.id) {
+        PubSubManager.selfEvent(signal);
+      } else {
+        PubSubManager.registerEvent(signal);
       }
     });
 
     deFlow.subscriber.psubscribe(PubSubManager.channel);
+  }
+
+  /**
+   * @param signal
+   */
+  static registerEvent(signal: Signals): void {
+    switch (signal.action) {
+      case Action.NextStep:
+        PubSubManager.nextStep(signal);
+        break;
+    }
+  }
+
+  /**
+   * @param signal
+   */
+  static selfEvent(signal: Signals): void {
+    switch (signal.action) {
+      case Action.Done:
+        PubSubManager.done(signal);
+        break;
+    }
   }
 
   /**
@@ -73,5 +104,13 @@ export default class PubSubManager {
    */
   static async nextStep(signal: SignalNextStep): Promise<void> {
     return WorkFlow.runStep(signal.data.stepKey);
+  }
+
+  /**
+   * On done
+   * @param signal
+   */
+  static async done(signal: SignalDone): Promise<void> {
+    PubSubManager.emitter.emit('done', signal.data.workflowId);
   }
 }

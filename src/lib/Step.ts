@@ -20,7 +20,7 @@ type AddStepWithData<T extends StepHandler> = AddStepWithoutData<T> & {
   data: T['data'];
 };
 
-export type AddStepC<T extends StepHandler = any> = T['data'] extends undefined | void
+export type AddStep<T extends StepHandler = any> = T['data'] extends undefined | void
   ? AddStepWithoutData<T>
   : AddStepWithData<T>;
 
@@ -239,7 +239,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @public
    * Add a step after the current one
    */
-  public async addAfter<T extends StepHandler>(params: AddStepC<T>): Promise<Step> {
+  public async addAfter<T extends StepHandler>(params: AddStep<T>): Promise<Step> {
     const { options, tasks, step } = params;
     let data = undefined;
     if (params && 'data' in params) {

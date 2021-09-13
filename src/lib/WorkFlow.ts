@@ -1,8 +1,10 @@
+import EventEmitter from 'events';
+
 import Debug from 'debug';
 import { generate } from 'short-uuid';
 import slugify from 'slugify';
 
-import Step, { AddStepC, JSONStepListItem, StepOptions } from './Step';
+import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import StepHandler from './StepHandler';
 
@@ -19,13 +21,15 @@ export type WorkFlowJSON = {
 
 export type WorkFlowOption = Partial<StepOptions> & {
   ifExist: 'replace' | 'create';
+  cleanOnDone: boolean;
 };
 
 const defaultOptions: WorkFlowOption = {
   ifExist: 'create',
+  cleanOnDone: true,
 };
 
-export default class WorkFlow {
+export default class WorkFlow extends EventEmitter {
   public id: string;
   public name: string;
   public list: string;
@@ -34,13 +38,15 @@ export default class WorkFlow {
   /**
    * Temp in memory store
    */
-  #addedSteps: AddStepC[] = [];
+  #addedSteps: AddStep[] = [];
 
   /**
    * Create a workflow from json
    * @param json
    */
   constructor(json: WorkFlowJSON) {
+    super();
+
     this.id = json.id;
     this.name = json.name;
     this.list = json.queueId;
@@ -49,7 +55,7 @@ export default class WorkFlow {
 
   static create(name: string): WorkFlow;
   static create(name: string, opts: Partial<WorkFlowOption>): WorkFlow;
-  static create(name: string, steps: AddStepC[], opts?: Partial<WorkFlowOption>): WorkFlow;
+  static create(name: string, steps: AddStep[], opts?: Partial<WorkFlowOption>): WorkFlow;
 
   /**
    * Create and save new workflow
@@ -59,7 +65,7 @@ export default class WorkFlow {
    */
   static create(
     name: string,
-    steps?: AddStepC[] | Partial<WorkFlowOption>,
+    steps?: AddStep[] | Partial<WorkFlowOption>,
     opts: Partial<WorkFlowOption> = {}
   ): WorkFlow {
     const id = slugify([name, generate()].join(':'));
@@ -136,26 +142,34 @@ export default class WorkFlow {
       });
       return WorkFlow.runStep(stepKey);
     } else {
-      return workflow.#clean();
+      return workflow.#onDone();
     }
   }
 
   /**
    * Run the workflow
    */
-  public async run(): Promise<void> {
+  public async run(): Promise<WorkFlow> {
     await this.#store();
     if (this.#addedSteps.length > 0) {
       await this.#storeSteps();
     }
-    return WorkFlow.runNextStep(this.id);
+
+    await WorkFlow.runNextStep(this.id);
+
+    // Register to some events
+    PubSubManager.emitter.on('done', () => {
+      this.emit('done', this.id);
+    });
+
+    return this;
   }
 
   /**
    * Add a step to the current workflow
    * @param params
    */
-  public addStep<T extends StepHandler>(params: AddStepC<T>): WorkFlow {
+  public addStep<T extends StepHandler>(params: AddStep<T>): WorkFlow {
     const { step, options, tasks } = params;
 
     let data = undefined;
@@ -236,11 +250,24 @@ export default class WorkFlow {
   }
 
   /**
+   * Signal done and clean redis entries
+   */
+  async #onDone(): Promise<void> {
+    await PubSubManager.publish({
+      action: Action.Done,
+      data: { workflowId: this.id },
+    });
+    return this.#clean();
+  }
+
+  /**
    * Remove from redis
    */
   async #clean(): Promise<void> {
-    debug('clean');
-    return this.#cleanByKey(this.id);
+    if (this.options.cleanOnDone) {
+      debug('clean');
+      return this.#cleanByKey(this.id);
+    }
   }
 
   /**
@@ -265,7 +292,8 @@ export default class WorkFlow {
         }
 
         // There is a bit of a delay between get/delete but it is unavoidable
-        deFlow.client.del(keys, (delErr) => {
+        const delCommands = keys.map((k) => ['del', k]);
+        deFlow.client.multi(delCommands).exec((delErr) => {
           if (delErr) {
             return reject(delErr);
           }

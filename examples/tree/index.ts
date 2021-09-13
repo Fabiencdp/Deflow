@@ -13,8 +13,13 @@ setTimeout(() => {
  * Workflow test file
  */
 function createTreeWorkflow(): void {
-  WorkFlow.create('w')
+  const w = WorkFlow.create('w')
     .addStep({ step: step1, data: { toCreate: 5 } })
-    .addStep({ step: step2 })
-    .run();
+    .addStep({ step: step2 });
+
+  w.run();
+
+  w.on('done', () => {
+    console.log('Tree workflow is done');
+  });
 }
