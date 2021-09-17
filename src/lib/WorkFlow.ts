@@ -10,6 +10,7 @@ import StepHandler from './StepHandler';
 import Task from './Task';
 
 import DeFlow from './index';
+import EventEmitter from 'events';
 
 const debug = Debug('deflow:workflow');
 
@@ -308,7 +309,7 @@ export default class WorkFlow {
     });
 
     // Wait event to be sent before cleanup
-    this.events.once('done', () => {
+    this.events.on('done', () => {
       if (this.options.cleanOnDone) {
         this.clean();
       }

@@ -1,4 +1,4 @@
-import { fork, ChildProcess } from 'child_process';
+import { execSync, fork, ChildProcess } from 'child_process';
 
 import '../helpers/redis';
 
@@ -21,9 +21,20 @@ const client = redis.createClient(connection);
 
 const listeners: ChildProcess[] = [];
 function resetListeners() {
-  listeners.forEach((listener) => {
-    listener.kill('SIGTERM');
+  const ps = execSync(`ps -ef | grep '/node ./listener.js' | awk '{print $2}'`);
+  const toKill = ps
+    .toString()
+    .split('\n')
+    .filter((v) => v);
+
+  toKill.forEach((pid) => {
+    try {
+      process.kill(parseInt(pid));
+    } catch (e) {
+      // Silent
+    }
   });
+
   listeners.length = 0;
 }
 
@@ -61,7 +72,7 @@ afterAll(async () => {
   resetListeners();
 });
 
-describe('Sharing tasks between 4 nodes', () => {
+describe('Sharing tasks between 2 nodes', () => {
   it('should share tasks equally on four nodes', async () => {
     const ids = await createListeners(3);
 
@@ -101,5 +112,5 @@ describe('Sharing tasks between 4 nodes', () => {
       expect(includes).toBe(false);
       expect(result[id].length).toBeGreaterThan(0);
     });
-  });
+  }, 10000);
 });

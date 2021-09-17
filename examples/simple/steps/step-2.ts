@@ -14,10 +14,6 @@ export default new StepHandler<{ someData: string }, number, number>({
    */
   async beforeAll(step) {
     console.log('Step2: beforeAll');
-    // options1;
-    // const a = this.options1;
-    // console.log(step);
-
     const prev = await step.getPrevious();
     if (prev) {
       const results = await prev.getResults();
@@ -63,7 +59,7 @@ export default new StepHandler<{ someData: string }, number, number>({
     const success = res.filter((task) => !task.error);
     const errors = res.filter((task) => task.error);
 
-    console.log(`Step2: afterAll\n${success.length} success\n${errors.length} errors:`);
+    console.log(`Step2: afterAll: ${success.length} success, ${errors.length} errors:`);
     console.log(errors);
   },
 });

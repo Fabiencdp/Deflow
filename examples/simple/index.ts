@@ -15,8 +15,20 @@ setTimeout(() => {
  * Workflow test file
  */
 async function createSimpleWorkflow(): Promise<void> {
-  await WorkFlow.create('simple', { ifExist: 'replace' })
+  const workflow = await WorkFlow.create('simple', { ifExist: 'replace' })
     .addStep({ step: step1 })
     .addStep({ step: step2, data: { someData: 'something' } })
     .run();
+
+  workflow.events.on('done', (data) => {
+    console.log('done 1');
+    const workflow2 = WorkFlow.create('2', { ifExist: 'replace' })
+      .addStep({ step: step1 })
+      .addStep({ step: step2, data: { someData: 'something' } })
+      .run();
+
+    workflow2.events.on('done', (data) => {
+      console.log('done 2');
+    });
+  });
 }
