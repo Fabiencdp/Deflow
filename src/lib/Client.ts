@@ -3,15 +3,19 @@ import redis, { RedisClient } from 'redis';
 
 const debug = Debug('deflow:client');
 
-import { DeFlowOptions } from './';
+export type ConnectionOptions = {
+  host: string;
+  port?: number;
+  maxAttempts?: number;
+  connectTimeout?: number;
+  retryMaxDelay?: number;
+};
 
 export default class Client extends RedisClient {
   /**
    * Create a redis client
    */
-  public static createRedisClient(options: DeFlowOptions): RedisClient {
-    const { connection } = options;
-
+  public static createRedisClient(connection: ConnectionOptions): RedisClient {
     let attempts = 0;
     const maxAttempts = 10;
 

@@ -2,7 +2,7 @@ import Debug from 'debug';
 import { RedisClient } from 'redis';
 import { generate } from 'short-uuid';
 
-import Client from './Client';
+import Client, { ConnectionOptions } from './Client';
 import PubSubManager from './PubSubManager';
 import WorkFlow from './WorkFlow';
 import Step from './Step';
@@ -11,18 +11,16 @@ import Task, { JSONTask } from './Task';
 const debug = Debug('deflow');
 
 export interface DeFlowOptions {
-  connection: {
-    host?: string;
-    port?: number;
-    maxAttempts?: number;
-    connectTimeout?: number;
-    retryMaxDelay?: number;
-  };
+  connection: ConnectionOptions;
   checkProcessQueueInterval?: number;
 }
 
+const defaultOptions: Partial<DeFlowOptions> = {
+  checkProcessQueueInterval: 2000,
+};
+
 export default class DeFlow {
-  static instance: DeFlow;
+  static instance: DeFlow | undefined;
 
   public client: RedisClient;
   public subscriber: RedisClient;
@@ -35,17 +33,23 @@ export default class DeFlow {
   static processLockKey = 'process-lock';
   static processQueue = 'process-queue';
 
+  #checkInterval?: NodeJS.Timer;
+
   /**
    * Create deflow instance
-   * @param options
+   * @param opts
    */
-  constructor(options: DeFlowOptions) {
-    this.client = Client.createRedisClient(options);
-    this.subscriber = Client.createRedisClient(options);
-    this.publisher = Client.createRedisClient(options);
+  constructor(opts: DeFlowOptions) {
+    const options: DeFlowOptions = { ...defaultOptions, ...opts };
+    this.client = Client.createRedisClient(options.connection);
+    this.subscriber = Client.createRedisClient(options.connection);
+    this.publisher = Client.createRedisClient(options.connection);
 
     if (options.checkProcessQueueInterval && options.checkProcessQueueInterval > 0) {
-      setInterval(() => this.#checkProcessQueue(), options.checkProcessQueueInterval);
+      this.#checkInterval = setInterval(
+        () => this.#checkProcessQueue(),
+        options.checkProcessQueueInterval
+      );
     }
   }
 
@@ -67,6 +71,28 @@ export default class DeFlow {
   }
 
   /**
+   * leave instance connection
+   */
+  public static async unregister(): Promise<void> {
+    const { instance } = DeFlow;
+    if (!instance) {
+      return;
+    }
+
+    await PubSubManager.unsubscribe();
+
+    await instance.client.end(false);
+    await instance.publisher.end(false);
+    await instance.subscriber.end(false);
+
+    if (instance.#checkInterval) {
+      clearInterval(instance.#checkInterval);
+    }
+
+    DeFlow.instance = undefined;
+  }
+
+  /**
    * Singleton get instance method
    */
   public static getInstance(): DeFlow {
@@ -80,6 +106,10 @@ export default class DeFlow {
    * Check the lock expiration and run task cleanup
    */
   async #checkProcessQueue(): Promise<void> {
+    if (!this.client.connected) {
+      return;
+    }
+
     this.client.get(DeFlow.processLockKey, (err, res) => {
       if (res) {
         // Process is lock
@@ -89,6 +119,7 @@ export default class DeFlow {
       this.client.send_command('ZPOPMIN', [DeFlow.processQueue], (err, res) => {
         if (err) {
           console.error(err);
+          return;
         }
 
         if (!res || res.length === 0) {

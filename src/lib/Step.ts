@@ -7,6 +7,7 @@ import WorkFlow from './WorkFlow';
 import StepHandler, { StepHandlerFn } from './StepHandler';
 
 import DeFlow from './index';
+import PubSubManager, { Action } from './PubSubManager';
 
 const debug = Debug('deflow:step');
 
@@ -132,7 +133,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     // Get workflow default options
     const workFlow = await WorkFlow.getById(data.workflowId);
     if (!workFlow) {
-      throw new Error('any workflow');
+      throw new Error('Workflow does not exist');
     }
 
     if (workFlow.options) {
@@ -149,13 +150,14 @@ export default class Step<SD = any, TD = any, TR = any> {
 
     // Create step modules
     const { module, path, filename } = await Step.getModule(data.module);
+    const name = slugify(data.name || filename);
 
     if (!data.moduleFn) {
       if (typeof module.beforeAll === 'function') {
         await Step.create({
           ...data,
           module,
-          name: [data.name, 'beforeAll'].join(':'),
+          name: [name, 'beforeAll'].join(':'),
           moduleFn: 'beforeAll',
           index: data.index + 0.1,
           parentKey: key,
@@ -167,7 +169,7 @@ export default class Step<SD = any, TD = any, TR = any> {
         await Step.create({
           ...data,
           module,
-          name: [data.name, 'afterAll'].join(':'),
+          name: [name, 'afterAll'].join(':'),
           moduleFn: 'afterAll',
           index: data.index - 0.1,
           parentKey: key,
@@ -178,7 +180,6 @@ export default class Step<SD = any, TD = any, TR = any> {
       data.moduleFn = 'module';
     }
 
-    const name = slugify(data.name || filename);
     const stepInstance = new Step({
       id,
       key,
@@ -216,7 +217,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     return new Promise((resolve, reject) => {
       deFlow.client.get(key, (err, res) => {
         if (err || !res) {
-          return reject(err?.message || 'Unknown error');
+          return reject(err?.message || `Unknown step ${key}`);
         }
         const stepJSON: JSONStep = JSON.parse(res);
         const step = new Step(stepJSON);
@@ -301,6 +302,15 @@ export default class Step<SD = any, TD = any, TR = any> {
     }
 
     return task.store(dest);
+  }
+
+  /**
+   * On success
+   * @param task
+   */
+  async #succeedTask(task: Task): Promise<void> {
+    const data = JSON.stringify(task);
+    await this.#deflow.client.lpush(this.#taskDoneQueue, data);
   }
 
   /**
@@ -397,6 +407,14 @@ export default class Step<SD = any, TD = any, TR = any> {
       return Promise.resolve();
     }
 
+    // Pub event
+    if (this.moduleFn === 'module') {
+      PubSubManager.publish({
+        action: Action.NextTask,
+        data: { id: task.id, workflowId: this.workflowId, data: task.data, stepKey: task.stepKey },
+      });
+    }
+
     // Store in process queue, set a lock allow task requeue on node crash
     const score = new Date().getTime();
     const lockArgs: [string, string, string?, number?] = [DeFlow.processLockKey, this.id];
@@ -409,26 +427,17 @@ export default class Step<SD = any, TD = any, TR = any> {
     await this.#deflow.client.zadd(DeFlow.processQueue, score, JSON.stringify(task));
 
     // Run the task
-    let dest = this.#taskDoneQueue;
     try {
+      task.error = undefined;
       task.result = await this.#runTaskHandler(task);
+      await this.#succeedTask(task);
     } catch (e: any) {
       const error = typeof e === 'string' ? new Error(e) : e;
-      task.error = error.message;
-      task.failedCount = task.failedCount + 1;
-
-      // Retry failed task
-      if (task.failedCount < taskMaxFailCount) {
-        dest = this.#taskPendingQueue;
-      }
-
+      await this.failTask(task, error);
       await this.#runOnHandlerError(task, error);
       await this.#taskFailRetryDelay();
     }
 
-    // Push task to done/pending list
-    const data = JSON.stringify(task);
-    await this.#deflow.client.lpush(dest, data);
     await this.#deflow.client.zremrangebyscore('process-queue', score, score);
 
     // Run after each method
@@ -449,10 +458,10 @@ export default class Step<SD = any, TD = any, TR = any> {
     path: string | StepHandler
   ): Promise<{ path: string; module: StepHandler; filename: string }> {
     try {
-      if (path instanceof StepHandler) {
-        path = path.path;
+      // Fix js import by checking constructor name
+      if (path instanceof StepHandler || path.constructor.name === 'StepHandler') {
+        path = (path as StepHandler).path;
       }
-
       const filename = path.split('/').pop() || '';
       const module: StepHandler = await import(path).then((m) => m.default);
       if (!module || (!module.handler && !module.beforeAll)) {

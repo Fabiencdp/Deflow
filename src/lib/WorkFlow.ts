@@ -1,12 +1,13 @@
-import EventEmitter from 'events';
-
-import Debug from 'debug';
 import { generate } from 'short-uuid';
 import slugify from 'slugify';
+import Debug from 'debug';
+
+import { TypeSafeEventEmitter } from '../types';
 
 import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import StepHandler from './StepHandler';
+import Task from './Task';
 
 import DeFlow from './index';
 
@@ -19,9 +20,25 @@ export type WorkFlowJSON = {
   options: WorkFlowOption;
 };
 
-export type WorkFlowOption = Partial<StepOptions> & {
+type WorkFlowOption = Partial<StepOptions> & {
   ifExist: 'replace' | 'create';
   cleanOnDone: boolean;
+};
+
+export type WorkFlowResult = WorkFlow & {
+  steps: (Step & { tasks: Task[] })[];
+};
+
+type NewTaskEventData = {
+  id: string;
+  workflowId: string;
+  stepKey: string;
+  data: any;
+};
+
+type Events = {
+  done: WorkFlowResult;
+  nextTask: NewTaskEventData;
 };
 
 const defaultOptions: WorkFlowOption = {
@@ -29,11 +46,13 @@ const defaultOptions: WorkFlowOption = {
   cleanOnDone: true,
 };
 
-export default class WorkFlow extends EventEmitter {
+export default class WorkFlow {
   public id: string;
   public name: string;
   public list: string;
   public options: WorkFlowOption;
+
+  public events: TypeSafeEventEmitter<Events>;
 
   /**
    * Temp in memory store
@@ -45,12 +64,12 @@ export default class WorkFlow extends EventEmitter {
    * @param json
    */
   constructor(json: WorkFlowJSON) {
-    super();
-
     this.id = json.id;
     this.name = json.name;
     this.list = json.queueId;
     this.options = json.options;
+
+    this.events = PubSubManager.emitter;
   }
 
   static create(name: string): WorkFlow;
@@ -129,6 +148,7 @@ export default class WorkFlow extends EventEmitter {
     debug(`runNextStep ${workflowId}`);
 
     const workflow = await WorkFlow.getById(workflowId);
+
     if (!workflow) {
       debug('workflow does not exist');
       throw new Error('workflow does not exist');
@@ -149,19 +169,14 @@ export default class WorkFlow extends EventEmitter {
   /**
    * Run the workflow
    */
-  public async run(): Promise<WorkFlow> {
-    await this.#store();
-    if (this.#addedSteps.length > 0) {
-      await this.#storeSteps();
-    }
-
-    await WorkFlow.runNextStep(this.id);
-
-    // Register to some events
-    PubSubManager.emitter.on('done', () => {
-      this.emit('done', this.id);
+  public run(): WorkFlow {
+    this.#store().then(async () => {
+      if (this.#addedSteps.length > 0) {
+        await this.#storeSteps();
+      }
+      // Run workflow
+      return WorkFlow.runNextStep(this.id);
     });
-
     return this;
   }
 
@@ -180,6 +195,40 @@ export default class WorkFlow extends EventEmitter {
     this.#addedSteps.push({ step, data, tasks, options });
 
     return this;
+  }
+
+  /**
+   * Return all results
+   */
+  public results(): Promise<WorkFlowResult> {
+    const instance = DeFlow.getInstance();
+    return new Promise<WorkFlowResult>((resolve, reject) => {
+      instance.client.zrangebyscore(`${this.id}:steps-done`, '-inf', '+inf', (err, res) => {
+        if (err) {
+          return reject(err);
+        }
+
+        const steps = res.map((r) => JSON.parse(r)).map((j) => new Step(j));
+
+        const promises = steps.map(async (s) => {
+          const tasks = await s.getResults();
+          return { ...s.toJSON(), tasks };
+        });
+
+        Promise.all(promises).then((results) => {
+          const steps = results as unknown as (Step & { tasks: Task[] })[]; // TODO: fix type
+          return resolve({ ...this, steps });
+        });
+      });
+    });
+  }
+
+  /**
+   * Remove from redis
+   */
+  public async clean(): Promise<void> {
+    debug('clean');
+    return this.#cleanByKey(this.id);
   }
 
   /**
@@ -257,17 +306,13 @@ export default class WorkFlow extends EventEmitter {
       action: Action.Done,
       data: { workflowId: this.id },
     });
-    return this.#clean();
-  }
 
-  /**
-   * Remove from redis
-   */
-  async #clean(): Promise<void> {
-    if (this.options.cleanOnDone) {
-      debug('clean');
-      return this.#cleanByKey(this.id);
-    }
+    // Wait event to be sent before cleanup
+    this.events.once('done', () => {
+      if (this.options.cleanOnDone) {
+        this.clean();
+      }
+    });
   }
 
   /**

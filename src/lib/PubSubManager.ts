@@ -24,8 +24,10 @@ type SignalNextStep = Signal & {
 type SignalNextTask = Signal & {
   action: Action.NextTask;
   data: {
+    id: string;
     workflowId: string;
     stepKey: string;
+    data: any;
   };
 };
 
@@ -65,6 +67,17 @@ export default class PubSubManager {
   }
 
   /**
+   * Leave out the channel
+   */
+  static async unsubscribe(): Promise<void> {
+    const deFlow = DeFlow.getInstance();
+    if (!deFlow) {
+      return;
+    }
+    deFlow.subscriber.punsubscribe(PubSubManager.channel);
+  }
+
+  /**
    * @param signal
    */
   static registerEvent(signal: Signals): void {
@@ -82,6 +95,9 @@ export default class PubSubManager {
     switch (signal.action) {
       case Action.Done:
         PubSubManager.done(signal);
+        break;
+      case Action.NextTask:
+        PubSubManager.nextTask(signal);
         break;
     }
   }
@@ -107,10 +123,25 @@ export default class PubSubManager {
   }
 
   /**
+   * Run next step
+   * @param signal
+   */
+  static async nextTask(signal: SignalNextTask): Promise<void> {
+    this.emitter.emit('nextTask', signal.data);
+  }
+
+  /**
    * On done
    * @param signal
    */
   static async done(signal: SignalDone): Promise<void> {
-    PubSubManager.emitter.emit('done', signal.data.workflowId);
+    const workflow = await WorkFlow.getById(signal.data.workflowId);
+    if (!workflow) {
+      console.error(`Unknown workflow ${signal.data.workflowId}`);
+      return;
+    }
+    const results = await workflow.results();
+    this.emitter.emit('done', results);
+    this.emitter.removeAllListeners();
   }
 }

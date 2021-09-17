@@ -19,7 +19,7 @@ function createTreeWorkflow(): void {
 
   w.run();
 
-  w.on('done', () => {
+  w.events.on('done', () => {
     console.log('Tree workflow is done');
   });
 }
