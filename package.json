@@ -1,11 +1,10 @@
 {
   "name": "deflow",
-  "version": "0.0.11",
+  "version": "0.1.0",
   "description": "Deflow is a decentralized job workflow manager backed on Redis",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "source": "src/index.ts",
-  "repository": "https://github.com/Fabiencdp/Deflow",
   "np": {
     "yarn": false,
     "contents": "dist"
@@ -14,12 +13,23 @@
     "dist"
   ],
   "scripts": {
-    "dev": "nodemon -w src src/index.ts",
-    "prepare": "npm run build",
+    "dev": "nodemon -w src old/index.ts",
+    "prepublish": "npm run build",
     "publish": "np",
-    "build": "tsc --project ./",
-    "test": "",
-    "example:simple": "DEBUG=deflow:* nodemon -w src -w examples examples/simple/index.ts"
+    "build": "rm -rf dist && tsc --project ./",
+    "lint": "eslint src",
+    "lint:fix": "eslint --fix src",
+    "prettier:check": "npx prettier --check src",
+    "prettier:write": "npx prettier --write src",
+    "jest": "npx jest",
+    "test": "npm run jest -- --detectOpenHandles --runInBand",
+    "test:watch": "npm run test -- --collectCoverage=false --watch",
+    "listener": "LISTENER=1 nodemon --inspect=9228 -w src examples/listener/index.ts",
+    "listener:raw": "LISTENER=1 node src examples/listener/index.ts",
+    "example:simple": "nodemon --inspect -w src examples/simple/index.ts",
+    "example:tree": "nodemon --inspect -w src examples/tree/index.ts",
+    "example:multi": "nodemon --inspect -w src examples/multi/index.ts",
+    "validate-branch-name": "validate-branch-name"
   },
   "nodemonConfig": {
     "restartable": "rs",
@@ -29,7 +39,7 @@
     ],
     "verbose": false,
     "execMap": {
-      "ts": "node --inspect --require ts-node/register"
+      "ts": "node --require ts-node/register"
     },
     "watch": [
       "src/",
@@ -49,18 +59,35 @@
   "author": "fabiencdp",
   "license": "WTFPL",
   "dependencies": {
-    "debug": "^4.3.1",
     "redis": "^3.1.2",
     "short-uuid": "^4.2.0",
-    "slugify": "^1.5.3"
+    "slugify": "^1.6.0"
+  },
+  "validate-branch-name": {
+    "pattern": "^(feature|fix|hotfix|release)/.+$",
+    "errorMsg": "Your name branch is incorrect, she must begin by feature/, fix/, hotfix/ or release/"
   },
   "devDependencies": {
-    "@types/debug": "^4.1.5",
-    "@types/node": "^15.12.2",
-    "@types/redis": "^2.8.29",
-    "nodemon": "^2.0.7",
-    "prettier": "^2.3.1",
-    "ts-node": "^10.0.0",
-    "typescript": "^4.3.2"
+    "@types/debug": "^4.1.7",
+    "@types/jest": "^27.0.1",
+    "@types/node": "^16.9.1",
+    "@types/redis": "^2.8.32",
+    "@typescript-eslint/eslint-plugin": "^4.31.0",
+    "@typescript-eslint/parser": "^4.31.0",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-jsdoc": "^36.1.0",
+    "eslint-plugin-prefer-arrow": "^1.2.3",
+    "eslint-plugin-prettier": "^4.0.0",
+    "execa": "^5.1.1",
+    "jest": "^27.2.0",
+    "nodemon": "^2.0.12",
+    "prettier": "^2.4.0",
+    "redis-mock": "^0.56.3",
+    "ts-jest": "^27.0.5",
+    "ts-node": "^10.2.1",
+    "typescript": "^4.4.3",
+    "validate-branch-name": "^1.0.6"
   }
 }
