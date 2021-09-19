@@ -11,7 +11,8 @@ export default new StepHandler({
    * @param step
    */
   async beforeAll(step) {
-    const tasks = ['12', '10', '7', '45']; // You can fetch data from external souce or db
+    const tasks = ['12', '10', '7', '45']; // You can fetch data from external source or db
+    console.log('Step1: beforeAll', 'will convert following data:', tasks);
     await step.addTasks(tasks);
   },
 
