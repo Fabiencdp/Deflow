@@ -1,4 +1,4 @@
-import '../../test/helpers/redis';
+import '../../test/helpers/redis-mock';
 import redis from 'redis';
 
 import { StepHandler, WorkFlow } from '../index';
@@ -11,7 +11,6 @@ import Step from './Step';
 import DeFlow from './index';
 
 jest.mock('./PubSubManager');
-jest.useFakeTimers('legacy');
 
 const pubSubSpy = jest.spyOn(PubSubManager, 'subscribe');
 
@@ -24,6 +23,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  jest.useFakeTimers('legacy');
   pubSubSpy.mockReset();
   await client.flushall();
 });

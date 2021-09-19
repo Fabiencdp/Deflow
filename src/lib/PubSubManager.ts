@@ -82,8 +82,14 @@ export default class PubSubManager {
    */
   static registerEvent(signal: Signals): void {
     switch (signal.action) {
+      case Action.Done:
+        PubSubManager.done(signal);
+        break;
       case Action.NextStep:
         PubSubManager.nextStep(signal);
+        break;
+      case Action.NextTask:
+        PubSubManager.nextTask(signal);
         break;
     }
   }
@@ -135,13 +141,6 @@ export default class PubSubManager {
    * @param signal
    */
   static async done(signal: SignalDone): Promise<void> {
-    const workflow = await WorkFlow.getById(signal.data.workflowId);
-    if (!workflow) {
-      console.error(`Unknown workflow ${signal.data.workflowId}`);
-      return;
-    }
-    const results = await workflow.results();
-    this.emitter.emit('done', results);
-    this.emitter.removeAllListeners();
+    PubSubManager.emitter.emit('done', signal.data.workflowId);
   }
 }

@@ -30,7 +30,14 @@ afterAll(async () => {
 
 describe('Long process', () => {
   it('should succeed', async () => {
-    const workflow = await WorkFlow.create('long-process')
+    let nextTaskEventCount = 0;
+    const taskMaxFailCount = 3;
+    const tasks = [10, 1, 20, 30, 40];
+
+    // Task with data === 1 will fail 3 times
+    const expectedNextTaskEventCount = tasks.length - 1 + taskMaxFailCount;
+
+    const workflow = WorkFlow.create('long-process')
       .addStep({
         step: failWhenValueIs1,
         tasks: [10, 1, 20, 30, 40], // value "1" will fail
@@ -43,7 +50,8 @@ describe('Long process', () => {
       .run();
 
     // Simulate the #checkProcessQueue call each
-    workflow.events.on('nextTask', () => {
+    workflow.events.on('nextTask', (d) => {
+      nextTaskEventCount += 1;
       jest.advanceTimersByTime(checkProcessQueueInterval);
     });
 
@@ -64,6 +72,8 @@ describe('Long process', () => {
 
     expect(success.length).toBe(4);
     expect(values).toEqual([10, 20, 30, 40]);
+
+    expect(nextTaskEventCount).toBe(expectedNextTaskEventCount);
   });
 });
 

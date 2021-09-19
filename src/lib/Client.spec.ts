@@ -1,4 +1,4 @@
-import '../../test/helpers/redis';
+import '../../test/helpers/redis-mock';
 import { RedisClient } from 'redis';
 
 import Client, { ConnectionOptions } from './Client';

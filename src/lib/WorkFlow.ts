@@ -1,3 +1,5 @@
+import EventEmitter from 'events';
+
 import { generate } from 'short-uuid';
 import slugify from 'slugify';
 import Debug from 'debug';
@@ -10,7 +12,6 @@ import StepHandler from './StepHandler';
 import Task from './Task';
 
 import DeFlow from './index';
-import EventEmitter from 'events';
 
 const debug = Debug('deflow:workflow');
 
@@ -30,7 +31,7 @@ export type WorkFlowResult = WorkFlow & {
   steps: (Step & { tasks: Task[] })[];
 };
 
-type NewTaskEventData = {
+type NextTaskEventData = {
   id: string;
   workflowId: string;
   stepKey: string;
@@ -39,7 +40,7 @@ type NewTaskEventData = {
 
 type Events = {
   done: WorkFlowResult;
-  nextTask: NewTaskEventData;
+  nextTask: NextTaskEventData;
 };
 
 const defaultOptions: WorkFlowOption = {
@@ -70,7 +71,7 @@ export default class WorkFlow {
     this.list = json.queueId;
     this.options = json.options;
 
-    this.events = PubSubManager.emitter;
+    this.events = new EventEmitter();
   }
 
   static create(name: string): WorkFlow;
@@ -98,6 +99,7 @@ export default class WorkFlow {
     if (Array.isArray(steps) && steps.length > 0) {
       workFlow.#addedSteps = steps;
     }
+
     return workFlow;
   }
 
@@ -163,7 +165,10 @@ export default class WorkFlow {
       });
       return WorkFlow.runStep(stepKey);
     } else {
-      return workflow.#onDone();
+      await PubSubManager.publish({
+        action: Action.Done,
+        data: { workflowId },
+      });
     }
   }
 
@@ -175,6 +180,9 @@ export default class WorkFlow {
       if (this.#addedSteps.length > 0) {
         await this.#storeSteps();
       }
+
+      this.#listenPubSubEvents();
+
       // Run workflow
       return WorkFlow.runNextStep(this.id);
     });
@@ -300,20 +308,34 @@ export default class WorkFlow {
   }
 
   /**
-   * Signal done and clean redis entries
+   * Register some events
+   * TODO: better event management
    */
-  async #onDone(): Promise<void> {
-    await PubSubManager.publish({
-      action: Action.Done,
-      data: { workflowId: this.id },
-    });
-
-    // Wait event to be sent before cleanup
-    this.events.on('done', () => {
-      if (this.options.cleanOnDone) {
-        this.clean();
+  #listenPubSubEvents(): void {
+    const onNextTask = async (data: NextTaskEventData) => {
+      if (data.workflowId === this.id) {
+        this.events.emit('nextTask', data);
       }
-    });
+    };
+
+    const onDone = async (workflowId: string) => {
+      if (workflowId === this.id) {
+        PubSubManager.emitter.removeListener('done', onDone);
+        PubSubManager.emitter.removeListener('nextTask', onNextTask);
+
+        const result = await this.results();
+        this.events.emit('done', result);
+        if (this.options.cleanOnDone) {
+          this.clean();
+        }
+
+        this.events.removeListener('done', onDone);
+        this.events.removeListener('nextTask', onNextTask);
+      }
+    };
+
+    PubSubManager.emitter.on('done', onDone);
+    PubSubManager.emitter.on('nextTask', onNextTask);
   }
 
   /**
