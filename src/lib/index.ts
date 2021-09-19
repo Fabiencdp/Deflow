@@ -29,16 +29,17 @@ interface SignalData<D = unknown> {
 class DeFlowEmitter extends EventEmitter {}
 
 export default class DeFlow extends DeFlowEmitter {
-  // TODO:
   private subscriber!: Client;
   private publisher!: Client;
   public queue!: Client;
+
+  public static prefix = 'dfw';
 
   private readonly uuid = generate();
 
   private static instance: DeFlow;
 
-  private static readonly signalChannel = '_wfw:signal';
+  private static readonly signalChannel = `${DeFlow.prefix}:signal`;
   private static readonly signalActions = {
     CREATE: 'create',
     STEP_START: 'run-next-step',
@@ -80,53 +81,15 @@ export default class DeFlow extends DeFlowEmitter {
   }
 
   /**
-   * Init needed classes
-   */
-  private _init() {
-    DeFlow.log('_init');
-    this.subscriber = Client.createRedisClient(this.options);
-    this.publisher = Client.createRedisClient(this.options);
-    this.queue = Client.createRedisClient(this.options);
-  }
-
-  /**
    * @param name
    * @param steps
    */
   public static async createWorkflow(name: string, steps: AddStep[]): Promise<Workflow> {
-    DeFlow.log('createWorkflow');
+    debug('createWorkflow');
     if (!DeFlow.instance) {
       throw new Error('DeFlow is not registered, did you forgot to call Flow.register() ?');
     }
     return Workflow.create(name, steps);
-  }
-
-  /**
-   * Main run handler
-   */
-  public run(workflowId: string): void {
-    DeFlow.log('run', workflowId);
-
-    this._runNextStep(workflowId);
-  }
-
-  /**
-   * @param workflowId
-   * @param step
-   * @private
-   */
-  private async _signalRunNextStep(workflowId: string, step: Step) {
-    DeFlow.log('_signalRunNextStep');
-
-    const data: SignalData = {
-      action: DeFlow.signalActions.STEP_START,
-      creatorId: this.uuid,
-      workflowId,
-      step,
-    };
-
-    const message = JSON.stringify(data);
-    await this.publisher.publish(DeFlow.signalChannel, message);
   }
 
   /**
@@ -141,7 +104,7 @@ export default class DeFlow extends DeFlowEmitter {
 
     instance.subscriber.on('message', async (channel, message) => {
       const { workflowId, action, step } = JSON.parse(message) as SignalData;
-      DeFlow.log('registerMessage', channel, workflowId, action);
+      debug('registerMessage', channel, workflowId, action);
 
       switch (action) {
         case DeFlow.signalActions.STEP_START:
@@ -155,20 +118,62 @@ export default class DeFlow extends DeFlowEmitter {
     instance.subscriber.subscribe(DeFlow.signalChannel);
   }
 
+
+  /**
+   * Main run handler
+   */
+  public run(workflowId: string): void {
+    debug('run', workflowId);
+
+    this._runNextStep(workflowId);
+  }
+
+
+  /**
+   * Init needed classes
+   */
+  private _init() {
+    debug('_init');
+    this.subscriber = Client.createRedisClient(this.options);
+    this.publisher = Client.createRedisClient(this.options);
+    this.queue = Client.createRedisClient(this.options);
+  }
+
+  /**
+   * @param workflowId
+   * @param step
+   * @private
+   */
+  private async _signalRunNextStep(workflowId: string, step: Step) {
+    debug('_signalRunNextStep');
+
+    const data: SignalData = {
+      action: DeFlow.signalActions.STEP_START,
+      creatorId: this.uuid,
+      workflowId,
+      step,
+    };
+
+    const message = JSON.stringify(data);
+    await this.publisher.publish(DeFlow.signalChannel, message);
+  }
+
+
   /**
    * @param workflowId
    * @private
    */
   private async _runNextStep(workflowId: string) {
-    DeFlow.log('_runNextStep', workflowId);
+    debug('_runNextStep', workflowId);
 
     const workflow = await Workflow.get(workflowId);
 
     // Get min
     this.queue.zrange(workflow.stepsQueue, 0, 1, (err, reply) => {
-      DeFlow.log('zrange', reply);
+      debug('zrange', reply);
 
       const [json] = reply;
+
       if (!json) {
         this._clean(workflowId);
         return;
@@ -188,7 +193,7 @@ export default class DeFlow extends DeFlowEmitter {
    */
   private async _runNextTask(jsonStep: JSONStep) {
     const step = new Step(jsonStep);
-    DeFlow.log('_runNextTask', step.id);
+    debug('_runNextTask', step.id);
 
     let running = 0;
     const promises = [];
@@ -200,7 +205,7 @@ export default class DeFlow extends DeFlowEmitter {
     await Promise.all(promises);
 
     // Update step when all task are done
-    this._updateStep(step);
+    return this._updateStep(step);
   }
 
   /**
@@ -209,7 +214,7 @@ export default class DeFlow extends DeFlowEmitter {
    * @private
    */
   private async _runTaskHandler(step: Step): Promise<void> {
-    DeFlow.log('_runNextTask', step.queues.pending);
+    debug('_runNextTask', step.queues.pending);
 
     return new Promise((resolve) => {
       this.queue.rpop(step.taskQueues.pending, async (err, reply) => {
@@ -231,6 +236,8 @@ export default class DeFlow extends DeFlowEmitter {
           // Retry failed task
           if (task.failedCount < step.options.taskMaxFailCount) {
             dest = step.taskQueues.pending;
+          } else {
+            console.error('TASK FAILED', task);
           }
         }
 
@@ -247,7 +254,7 @@ export default class DeFlow extends DeFlowEmitter {
    * @private
    */
   private async _updateStep(step: Step) {
-    DeFlow.log('_updateStep', step.name);
+    debug('_updateStep', step.name);
 
     this.queue.zrange(step.queues.pending, 0, 0, (err, reply) => {
       const [json] = reply;
@@ -278,12 +285,5 @@ export default class DeFlow extends DeFlowEmitter {
     if (workflow) {
       return workflow.clean();
     }
-  }
-
-  /**
-   * @param message
-   */
-  public static log(...message: unknown[]): void {
-    debug(message.join(' '));
   }
 }

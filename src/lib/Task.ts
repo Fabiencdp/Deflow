@@ -1,5 +1,6 @@
-import DeFlow from "./index";
-import Step, {JSONStep} from "./Step";
+import DeFlow from './index';
+import Step, { JSONStep } from './Step';
+import Debug from 'debug';
 
 export type JSONTask<D = unknown, R = unknown> = {
   data: D;
@@ -15,6 +16,8 @@ type CreateTask<D = unknown> = {
   data: D;
   stepId: string;
 };
+
+const debug = Debug('deflow:task');
 
 export default class Task<D = unknown, R = unknown> {
   public data: D;
@@ -42,6 +45,8 @@ export default class Task<D = unknown, R = unknown> {
    * @param data
    */
   public static create<D = unknown, R = unknown>(data: CreateTask<D>): Task<D, R> {
+    debug('create', data.stepId);
+
     const taskData: JSONTask<D, R> = {
       failedCount: 0,
       error: undefined,
@@ -65,7 +70,7 @@ export default class Task<D = unknown, R = unknown> {
         }
         const jsonStep = JSON.parse(reply) as JSONStep;
         return resolve(new Step(jsonStep));
-      })
+      });
     });
   }
 

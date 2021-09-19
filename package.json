@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "source": "src/index.ts",
+  "repository": "https://github.com/Fabiencdp/Deflow",
   "np": {
     "yarn": false,
     "contents": "dist"
@@ -14,11 +15,11 @@
   ],
   "scripts": {
     "dev": "nodemon -w src src/index.ts",
-    "prepublish": "npm run build",
+    "prepare": "npm run build",
     "publish": "np",
     "build": "tsc --project ./",
     "test": "",
-    "example:simple": "DEBUG=deflow nodemon -w src examples/simple/index.ts"
+    "example:simple": "DEBUG=deflow:* nodemon -w src -w examples examples/simple/index.ts"
   },
   "nodemonConfig": {
     "restartable": "rs",
@@ -48,17 +49,18 @@
   "author": "fabiencdp",
   "license": "WTFPL",
   "dependencies": {
+    "debug": "^4.3.1",
     "redis": "^3.1.2",
     "short-uuid": "^4.2.0",
     "slugify": "^1.5.3"
   },
   "devDependencies": {
     "@types/debug": "^4.1.5",
-    "@types/node": "^15.6.0",
-    "@types/redis": "^2.8.28",
+    "@types/node": "^15.12.2",
+    "@types/redis": "^2.8.29",
     "nodemon": "^2.0.7",
-    "prettier": "^2.3.0",
-    "ts-node": "^9.1.1",
-    "typescript": "^4.2.4"
+    "prettier": "^2.3.1",
+    "ts-node": "^10.0.0",
+    "typescript": "^4.3.2"
   }
 }
