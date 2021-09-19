@@ -1,58 +1,21 @@
-import { execSync, fork, ChildProcess } from 'child_process';
-
-import '../helpers/redis';
+import '../../helpers/redis';
 
 import redis from 'redis';
 
-import { ConnectionOptions } from '../../src/lib/Client';
-import DeFlow from '../../src/lib';
-import { StepHandler, Task, WorkFlow } from '../../src';
-import { WorkFlowResult } from '../../src/lib/WorkFlow';
+import { ConnectionOptions } from '../../../src/lib/Client';
+import DeFlow from '../../../src/lib';
+import { StepHandler, Task, WorkFlow } from '../../../src';
+import { WorkFlowResult } from '../../../src/lib/WorkFlow';
+import { killNodes, createNodes } from '../../helpers/listener';
 
 import step1 from './steps/step1.js';
 
-jest.setTimeout(15000);
 process.env.NAME = 'creator';
 
 const checkProcessQueueInterval = 1000;
 const connection: ConnectionOptions = { host: 'localhost', port: 6379 };
 
 const client = redis.createClient(connection);
-
-const listeners: ChildProcess[] = [];
-function resetListeners() {
-  const ps = execSync(`ps -ef | grep '/node ./listener.js' | awk '{print $2}'`);
-  const toKill = ps
-    .toString()
-    .split('\n')
-    .filter((v) => v);
-
-  toKill.forEach((pid) => {
-    try {
-      process.kill(parseInt(pid));
-    } catch (e) {
-      // Silent
-    }
-  });
-
-  listeners.length = 0;
-}
-
-async function createListeners(nb: number): Promise<string[]> {
-  resetListeners();
-  const array = [...Array(nb).keys()];
-  const promises: Promise<string>[] = array.map(async (x) => {
-    return new Promise((resolve) => {
-      const listener = fork('./listener.js', [`--id=${x}`], {
-        cwd: __dirname,
-        silent: true,
-      });
-      listeners.push(listener);
-      listener.on('message', (id: string) => resolve(id));
-    });
-  });
-  return Promise.all(promises);
-}
 
 beforeAll(async () => {
   await client.flushall();
@@ -63,18 +26,18 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  resetListeners();
+  killNodes();
   await DeFlow.unregister();
 });
 
 afterAll(async () => {
   await client.end(true);
-  resetListeners();
+  killNodes();
 });
 
-describe('Sharing tasks between 2 nodes', () => {
+describe('Series 4', () => {
   it('should share tasks equally on two nodes', async () => {
-    const ids = await createListeners(1);
+    const ids = await createNodes(1);
 
     const workflow = await WorkFlow.create('multi')
       .addStep({
@@ -102,11 +65,9 @@ describe('Sharing tasks between 2 nodes', () => {
     expect(result[ids[0]].length).toBeGreaterThan(0);
     expect(result.creator.length).toBeGreaterThan(0);
   }, 10000);
-});
 
-describe('Sharing tasks between 4 nodes', () => {
   it('should share tasks equally on four nodes', async () => {
-    const ids = await createListeners(3);
+    const ids = await createNodes(3);
 
     const workflow = await WorkFlow.create('multi', { cleanOnDone: true })
       .addStep({
@@ -140,7 +101,7 @@ describe('Sharing tasks between 4 nodes', () => {
         return acc;
       }, {});
 
-    resetListeners();
+    killNodes();
 
     expect(result.creator.length).toBeGreaterThan(0);
 
@@ -154,7 +115,7 @@ describe('Sharing tasks between 4 nodes', () => {
 
 describe('Events between 9 nodes', () => {
   it('should correctly handle nextTask events', async () => {
-    await createListeners(9);
+    await createNodes(9);
 
     const tasksData = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
@@ -188,7 +149,7 @@ describe('Events between 9 nodes', () => {
   }, 10000);
 
   it('should correctly handle done events', async () => {
-    await createListeners(3);
+    await createNodes(3);
 
     const tasksData = [10, 20, 30];
 

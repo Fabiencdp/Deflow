@@ -1,9 +1,9 @@
-import '../helpers/redis';
+import '../../helpers/redis';
 
 import redis from 'redis';
 
-import DeFlow, { Task, WorkFlow } from '../../src';
-import { ConnectionOptions } from '../../src/lib/Client';
+import DeFlow, { Task, WorkFlow } from '../../../src';
+import { ConnectionOptions } from '../../../src/lib/Client';
 
 import failWhenValueIs1 from './steps/failWhenValueIs1';
 import throwWhenValueIs1 from './steps/throwWhenValueIs1';
@@ -28,7 +28,7 @@ afterAll(async () => {
   await client.end(true);
 });
 
-describe('Long process', () => {
+describe('Series 3', () => {
   it('should succeed', async () => {
     let nextTaskEventCount = 0;
     const taskMaxFailCount = 3;
@@ -75,9 +75,7 @@ describe('Long process', () => {
 
     expect(nextTaskEventCount).toBe(expectedNextTaskEventCount);
   });
-});
 
-describe('Long process', () => {
   it('should save failed task', async () => {
     await DeFlow.unregister();
     await DeFlow.register({ connection, checkProcessQueueInterval: 0 });

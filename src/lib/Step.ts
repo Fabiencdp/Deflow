@@ -659,7 +659,7 @@ export default class Step<SD = any, TD = any, TR = any> {
           }, []);
 
           acc = acc.concat(items);
-          return resolve(this.#getTaskRange(stop, stop + stop, acc));
+          return resolve(this.#getTaskRange(stop + 1, stop * 2, acc));
         } else {
           return resolve(acc);
         }

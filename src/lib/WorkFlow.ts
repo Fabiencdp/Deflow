@@ -217,11 +217,12 @@ export default class WorkFlow {
           return reject(err);
         }
 
-        const steps = res.map((r) => JSON.parse(r)).map((j) => new Step(j));
+        const doneSteps = res.map((r) => JSON.parse(r));
 
-        const promises = steps.map(async (s) => {
-          const tasks = await s.getResults();
-          return { ...s.toJSON(), tasks };
+        const promises = doneSteps.map(async (s) => {
+          const step = await Step.getByKey(s.key);
+          const tasks = await step.getResults();
+          return { ...step.toJSON(), tasks };
         });
 
         Promise.all(promises).then((results) => {
@@ -326,7 +327,9 @@ export default class WorkFlow {
         const result = await this.results();
         this.events.emit('done', result);
         if (this.options.cleanOnDone) {
-          this.clean();
+          setTimeout(() => {
+            this.clean();
+          }, 1500);
         }
 
         this.events.removeListener('done', onDone);

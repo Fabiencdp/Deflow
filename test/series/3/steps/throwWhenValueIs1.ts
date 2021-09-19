@@ -1,4 +1,4 @@
-import { StepHandler } from '../../../src';
+import { StepHandler } from '../../../../src';
 
 export default new StepHandler<void, number, number>({
   async handler(task) {

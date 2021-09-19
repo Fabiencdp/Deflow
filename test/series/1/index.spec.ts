@@ -1,9 +1,9 @@
-import '../helpers/redis';
+import '../../helpers/redis';
 
 import redis from 'redis';
 
-import DeFlow, { WorkFlow } from '../../src';
-import { ConnectionOptions } from '../../src/lib/Client';
+import DeFlow, { WorkFlow } from '../../../src';
+import { ConnectionOptions } from '../../../src/lib/Client';
 
 import step1 from './steps/step1';
 
@@ -24,7 +24,7 @@ afterAll(async () => {
   await client.end(true);
 });
 
-describe('Workflow creation', () => {
+describe('Series 1', () => {
   it('should create a new workflow', async () => {
     const workflow = await WorkFlow.create('test-simple')
       .addStep({

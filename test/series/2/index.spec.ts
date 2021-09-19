@@ -1,12 +1,12 @@
-import '../helpers/redis';
+import '../../helpers/redis';
 
 import redis from 'redis';
 
-import DeFlow, { Task, WorkFlow } from '../../src';
-import { ConnectionOptions } from '../../src/lib/Client';
+import DeFlow, { Task, WorkFlow } from '../../../src';
+import { ConnectionOptions } from '../../../src/lib/Client';
+import { WorkFlowResult } from '../../../src/lib/WorkFlow';
 
 import step1 from './steps/step1';
-import { WorkFlowResult } from '../../src/lib/WorkFlow';
 
 jest.useFakeTimers('legacy');
 
@@ -28,7 +28,7 @@ afterAll(async () => {
   await client.end(true);
 });
 
-describe('Error handling', () => {
+describe('Series 2', () => {
   it('should timeout and retry 2 times', async () => {
     const timeout = 500;
     const retry = 3;
