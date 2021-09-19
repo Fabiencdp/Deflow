@@ -1,289 +1,151 @@
-import EventEmitter from 'events';
 import Debug from 'debug';
+import { RedisClient } from 'redis';
 import { generate } from 'short-uuid';
 
-import Workflow from './Workflow';
-import Client from './Client';
-import Step, { AddStep, JSONStep } from './Step';
+import Client, { ConnectionOptions } from './Client';
+import PubSubManager from './PubSubManager';
+import WorkFlow from './WorkFlow';
+import Step from './Step';
 import Task, { JSONTask } from './Task';
 
 const debug = Debug('deflow');
 
 export interface DeFlowOptions {
-  connection: {
-    host?: string;
-    port?: number;
-    maxAttempts?: number;
-    connectTimeout?: number;
-    retryMaxDelay?: number;
-  };
+  connection: ConnectionOptions;
+  checkProcessQueueInterval?: number;
 }
 
-interface SignalData<D = unknown> {
-  workflowId: string;
-  action: string;
-  creatorId: string;
-  step?: JSONStep<D>;
-}
+const defaultOptions: Partial<DeFlowOptions> = {
+  checkProcessQueueInterval: 2000,
+};
 
-class DeFlowEmitter extends EventEmitter {}
+export default class DeFlow {
+  static instance: DeFlow | undefined;
 
-export default class DeFlow extends DeFlowEmitter {
-  private subscriber!: Client;
-  private publisher!: Client;
-  public queue!: Client;
+  public client: RedisClient;
+  public subscriber: RedisClient;
+  public publisher: RedisClient;
 
-  public static prefix = 'dfw';
+  public id = generate();
 
-  private readonly uuid = generate();
+  static WorkFlow = WorkFlow;
 
-  private static instance: DeFlow;
+  static processLockKey = 'process-lock';
+  static processQueue = 'process-queue';
 
-  private static readonly signalChannel = `${DeFlow.prefix}:signal`;
-  private static readonly signalActions = {
-    CREATE: 'create',
-    STEP_START: 'run-next-step',
-    RUN_NEXT_TASK: 'run-next-task',
-    STEP_DONE: 'step-done',
-    DONE: 'done',
-  };
-
-  public readonly options: DeFlowOptions = {
-    connection: {
-      host: 'localhost',
-      port: 6379,
-      maxAttempts: 10,
-      connectTimeout: 10000,
-      retryMaxDelay: 10000,
-    },
-  };
+  #checkInterval?: NodeJS.Timer;
 
   /**
+   * Create deflow instance
+   * @param opts
    */
-  private constructor(opts?: DeFlowOptions) {
-    super();
-    this.options = {
-      ...this.options,
-      ...(opts || {}),
-    };
+  constructor(opts: DeFlowOptions) {
+    const options: DeFlowOptions = { ...defaultOptions, ...opts };
+    this.client = Client.createRedisClient(options.connection);
+    this.subscriber = Client.createRedisClient(options.connection);
+    this.publisher = Client.createRedisClient(options.connection);
+
+    if (options.checkProcessQueueInterval && options.checkProcessQueueInterval > 0) {
+      this.#checkInterval = setInterval(
+        () => this.#checkProcessQueue(),
+        options.checkProcessQueueInterval
+      );
+    }
   }
 
   /**
-   * Get singleton instance
-   * @param opts
+   * Register the instance
+   * Subscribe to messages
+   * @param options
    */
-  public static getInstance(opts?: DeFlowOptions): DeFlow {
+  public static register(options: DeFlowOptions): DeFlow {
+    if (DeFlow.instance) {
+      console.warn('You tried to register DeFlow more than once');
+      return DeFlow.instance;
+    }
+    DeFlow.instance = new DeFlow(options);
+
+    PubSubManager.subscribe();
+
+    return DeFlow.instance;
+  }
+
+  /**
+   * leave instance connection
+   */
+  public static async unregister(): Promise<void> {
+    const { instance } = DeFlow;
+    if (!instance) {
+      return;
+    }
+
+    await PubSubManager.unsubscribe();
+
+    await instance.client.end(false);
+    await instance.publisher.end(false);
+    await instance.subscriber.end(false);
+
+    if (instance.#checkInterval) {
+      clearInterval(instance.#checkInterval);
+    }
+
+    DeFlow.instance = undefined;
+  }
+
+  /**
+   * Singleton get instance method
+   */
+  public static getInstance(): DeFlow {
     if (!DeFlow.instance) {
-      DeFlow.instance = new DeFlow(opts);
-      DeFlow.instance._init();
+      throw new Error('You must register a DeFlow Instance');
     }
     return DeFlow.instance;
   }
 
   /**
-   * @param name
-   * @param steps
+   * Check the lock expiration and run task cleanup
    */
-  public static async createWorkflow(name: string, steps: AddStep[]): Promise<Workflow> {
-    debug('createWorkflow');
-    if (!DeFlow.instance) {
-      throw new Error('DeFlow is not registered, did you forgot to call Flow.register() ?');
-    }
-    return Workflow.create(name, steps);
-  }
-
-  /**
-   * Register to events
-   */
-  public static register(option: DeFlowOptions): void {
-    if (DeFlow.instance) {
+  async #checkProcessQueue(): Promise<void> {
+    if (!this.client.connected) {
       return;
     }
 
-    const instance = DeFlow.getInstance(option);
-
-    instance.subscriber.on('message', async (channel, message) => {
-      const { workflowId, action, step } = JSON.parse(message) as SignalData;
-      debug('registerMessage', channel, workflowId, action);
-
-      switch (action) {
-        case DeFlow.signalActions.STEP_START:
-          if (step) {
-            instance._runNextTask(step);
-          }
-          break;
-      }
-    });
-
-    instance.subscriber.subscribe(DeFlow.signalChannel);
-  }
-
-
-  /**
-   * Main run handler
-   */
-  public run(workflowId: string): void {
-    debug('run', workflowId);
-
-    this._runNextStep(workflowId);
-  }
-
-
-  /**
-   * Init needed classes
-   */
-  private _init() {
-    debug('_init');
-    this.subscriber = Client.createRedisClient(this.options);
-    this.publisher = Client.createRedisClient(this.options);
-    this.queue = Client.createRedisClient(this.options);
-  }
-
-  /**
-   * @param workflowId
-   * @param step
-   * @private
-   */
-  private async _signalRunNextStep(workflowId: string, step: Step) {
-    debug('_signalRunNextStep');
-
-    const data: SignalData = {
-      action: DeFlow.signalActions.STEP_START,
-      creatorId: this.uuid,
-      workflowId,
-      step,
-    };
-
-    const message = JSON.stringify(data);
-    await this.publisher.publish(DeFlow.signalChannel, message);
-  }
-
-
-  /**
-   * @param workflowId
-   * @private
-   */
-  private async _runNextStep(workflowId: string) {
-    debug('_runNextStep', workflowId);
-
-    const workflow = await Workflow.get(workflowId);
-
-    // Get min
-    this.queue.zrange(workflow.stepsQueue, 0, 1, (err, reply) => {
-      debug('zrange', reply);
-
-      const [json] = reply;
-
-      if (!json) {
-        this._clean(workflowId);
+    this.client.get(DeFlow.processLockKey, (err, res) => {
+      if (res) {
+        // Process is lock
         return;
       }
 
-      const jsonStep = JSON.parse(json) as JSONStep;
-      const step = new Step(jsonStep);
-
-      this._signalRunNextStep(workflowId, step);
-    });
-  }
-
-  /**
-   * Run the task
-   * @param jsonStep
-   * @private
-   */
-  private async _runNextTask(jsonStep: JSONStep) {
-    const step = new Step(jsonStep);
-    debug('_runNextTask', step.id);
-
-    let running = 0;
-    const promises = [];
-    while (running < step.options.taskConcurrency) {
-      running = running + 1;
-      promises.push(this._runTaskHandler(step));
-    }
-
-    await Promise.all(promises);
-
-    // Update step when all task are done
-    return this._updateStep(step);
-  }
-
-  /**
-   * Run the task
-   * @param step
-   * @private
-   */
-  private async _runTaskHandler(step: Step): Promise<void> {
-    debug('_runNextTask', step.queues.pending);
-
-    return new Promise((resolve) => {
-      this.queue.rpop(step.taskQueues.pending, async (err, reply) => {
-        if (!reply) {
-          return resolve();
+      this.client.send_command('ZPOPMIN', [DeFlow.processQueue], (err, res) => {
+        if (err) {
+          console.error(err);
+          return;
         }
 
-        const jsonTask = JSON.parse(reply) as JSONTask;
-        const task = new Task(jsonTask);
-
-        // Run the task
-        let dest = step.taskQueues.done;
-        try {
-          task.result = await step.runTask(task);
-        } catch (e) {
-          task.error = e.message;
-          task.failedCount = task.failedCount + 1;
-
-          // Retry failed task
-          if (task.failedCount < step.options.taskMaxFailCount) {
-            dest = step.taskQueues.pending;
-          } else {
-            console.error('TASK FAILED', task);
-          }
+        if (!res || res.length === 0) {
+          return;
         }
 
-        const doneTask = JSON.stringify(task);
-        await this.queue.lpush(dest, doneTask);
-
-        return resolve(this._runTaskHandler(step));
+        const [json] = res;
+        const jsonTask: JSONTask = JSON.parse(json);
+        if (jsonTask) {
+          this.#restoreTask(jsonTask);
+        }
       });
     });
   }
 
   /**
-   * @param step
-   * @private
+   * Restore a timeout task
    */
-  private async _updateStep(step: Step) {
-    debug('_updateStep', step.name);
-
-    this.queue.zrange(step.queues.pending, 0, 0, (err, reply) => {
-      const [json] = reply;
-      if (!json) {
-        return;
-      }
-
-      const jsonStep = JSON.parse(json) as JSONStep;
-      if (json && jsonStep.id === step.id) {
-        this.queue.llen(step.taskQueues.done, async (err, reply) => {
-          if (reply === step.taskCount) {
-            await this.queue.sendCommand('ZPOPMIN', [step.queues.pending]);
-            await this.queue.zadd(step.queues.done, step.index, JSON.stringify(step));
-            return this._runNextStep(step.workflowId);
-          }
-        });
-      }
+  async #restoreTask(jsonTask: JSONTask): Promise<void> {
+    const task = new Task(jsonTask);
+    Step.getByKey(task.stepKey).then((step) => {
+      debug('Restore Task of', step.name);
+      const err = new Error('Unexpected Timeout');
+      step.failTask(task, err).then(() => {
+        step.runNextTask();
+      });
     });
-  }
-
-  /**
-   * Clean workbench
-   * @param workflowId
-   * @private
-   */
-  private async _clean(workflowId: string): Promise<number | void> {
-    const workflow = await Workflow.get(workflowId);
-    if (workflow) {
-      return workflow.clean();
-    }
   }
 }
