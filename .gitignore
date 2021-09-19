@@ -5,6 +5,9 @@
 # Dist
 dist
 
+# Coverage
+coverage
+
 # Modules
 node_modules
 

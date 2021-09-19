@@ -1,19 +1,22 @@
+import Debug from 'debug';
 import redis, { RedisClient } from 'redis';
 
-import Debug from 'debug';
-
-import { DeFlowOptions } from './index';
-
 const debug = Debug('deflow:client');
+
+export type ConnectionOptions = {
+  host: string;
+  port?: number;
+  maxAttempts?: number;
+  connectTimeout?: number;
+  retryMaxDelay?: number;
+};
 
 export default class Client extends RedisClient {
   /**
    * Create a redis client
    */
-  public static createRedisClient(options: DeFlowOptions): RedisClient {
-    const { connection } = options;
-
-    let attempts = 1;
+  public static createRedisClient(connection: ConnectionOptions): RedisClient {
+    let attempts = 0;
     const maxAttempts = 10;
 
     const client = redis.createClient({
@@ -25,18 +28,19 @@ export default class Client extends RedisClient {
     });
 
     client.on('ready', () => {
-      debug('ready');
+      debug('clientReady');
     });
 
     client.on('reconnecting', () => {
-      debug('reconnecting');
+      debug('clientReconnecting');
     });
 
     client.on('error', (e) => {
       attempts += 1;
-      debug('error', attempts, e);
+      debug('clientError', attempts, e);
       if (attempts >= maxAttempts) {
-        throw new Error(e);
+        const error = new Error(e);
+        throw error;
       }
     });
 

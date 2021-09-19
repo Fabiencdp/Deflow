@@ -4,11 +4,12 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "rootDir": "./src",
+    "rootDir": "./",
     "outDir": "./dist",
     "strict": true,
     "sourceMap": true,
-    "declaration": true
+    "declaration": true,
+    "allowJs": true
   },
   "exclude": ["node_modules", "examples", "dist", "src/test/*"]
 }

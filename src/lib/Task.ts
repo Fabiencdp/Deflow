@@ -1,90 +1,96 @@
-import DeFlow from './index';
-import Step, { JSONStep } from './Step';
 import Debug from 'debug';
+import { generate } from 'short-uuid';
 
-export type JSONTask<D = unknown, R = unknown> = {
+import DeFlow from './index';
+
+const debug = Debug('Task');
+
+export type CreateTask<D = any> = {
   data: D;
-  stepId: string;
+  stepKey: string;
+  queue: string;
+};
 
+export type JSONTask<D = any, R = any> = {
+  id: string;
+  data: D;
   failedCount: number;
-  error: string | undefined;
-
-  result: R | undefined;
+  error?: string;
+  result?: R;
+  stepKey: string;
 };
 
-type CreateTask<D = unknown> = {
-  data: D;
-  stepId: string;
-};
+export default class Task<D = any, R = any> {
+  public id: string;
 
-const debug = Debug('deflow:task');
-
-export default class Task<D = unknown, R = unknown> {
   public data: D;
-  public stepId: string;
+  public result?: R;
 
   public failedCount: number;
-  public error: string | undefined;
-
-  public result: R | undefined;
+  public error?: string;
+  public stepKey: string;
 
   /**
-   * Construct a task
-   * @param data
+   * Create a task from json
+   * @param json
    */
-  constructor(data: JSONTask<D, R>) {
-    this.data = data.data;
-    this.stepId = data.stepId;
-    this.result = data.result;
+  constructor(json: JSONTask<D, R>) {
+    this.id = json.id;
+    this.data = json.data;
 
-    this.error = data.error;
-    this.failedCount = data.failedCount;
+    this.failedCount = json.failedCount;
+    this.error = json.error;
+    this.result = json.result;
+
+    this.stepKey = json.stepKey;
   }
 
   /**
+   * Create a task
    * @param data
    */
-  public static create<D = unknown, R = unknown>(data: CreateTask<D>): Task<D, R> {
-    debug('create', data.stepId);
-
-    const taskData: JSONTask<D, R> = {
-      failedCount: 0,
-      error: undefined,
+  static async create<D = unknown, R = unknown>(data: CreateTask<D>): Promise<Task<D, R>> {
+    debug('create', data.queue);
+    const taskInstance = new Task<D, R>({
+      id: generate(),
       data: data.data,
-      stepId: data.stepId,
-      result: undefined,
-    };
+      failedCount: 0,
+      stepKey: data.stepKey,
+    });
 
-    return new Task(taskData);
+    await taskInstance.store(data.queue);
+
+    return taskInstance;
   }
 
   /**
-   * get task step
+   * @param queue
    */
-  public getStep(): Promise<Step> {
+  async store(queue: string): Promise<boolean> {
+    const deFlow = DeFlow.getInstance();
+
+    const data = JSON.stringify(this);
     return new Promise((resolve, reject) => {
-      const flow = DeFlow.getInstance();
-      flow.queue.get(this.stepId, (err, reply) => {
-        if (!reply) {
-          return reject(new Error('Step does not exists'));
+      deFlow.client.rpush(queue, data, (err, added) => {
+        if (err) {
+          return reject(err);
         }
-        const jsonStep = JSON.parse(reply) as JSONStep;
-        return resolve(new Step(jsonStep));
+        return resolve(added > 0);
       });
     });
   }
 
   /**
-   * Convert to json
+   * Stringify method
    */
-  public toJSON(): JSONTask<D, R> {
+  toJSON(): JSONTask<D, R> {
     return {
+      id: this.id,
       data: this.data,
-      stepId: this.stepId,
-      result: this.result,
-
-      error: this.error,
       failedCount: this.failedCount,
+      error: this.error,
+      result: this.result,
+      stepKey: this.stepKey,
     };
   }
 }
