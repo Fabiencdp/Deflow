@@ -10,7 +10,7 @@ module.exports = {
     },
   },
   setupFilesAfterEnv: ['./jest.setup.js'],
-  coveragePathIgnorePatterns: ['<rootDir>/node_modules/', '.mock.ts'],
+  coveragePathIgnorePatterns: ['<rootDir>/node_modules/', '.mock.ts', 'src/test/'],
   watchPathIgnorePatterns: ['<rootDir>/node_modules/'],
   timers: 'legacy',
 };
