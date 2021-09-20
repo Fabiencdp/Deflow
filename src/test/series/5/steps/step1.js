@@ -1,4 +1,4 @@
-const StepHandler = require('../../../../dist/src/lib/StepHandler');
+const StepHandler = require('../../../../../dist/lib/StepHandler');
 
 const stepHandler = new StepHandler.default({
   handler(task) {

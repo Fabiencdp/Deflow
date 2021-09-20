@@ -2,8 +2,8 @@ import '../../helpers/redis';
 
 import redis from 'redis';
 
-import DeFlow, { Task, WorkFlow } from '../../../src';
-import { ConnectionOptions } from '../../../src/lib/Client';
+import DeFlow, { Task, WorkFlow } from '../../../index';
+import { ConnectionOptions } from '../../../lib/Client';
 
 import failWhenValueIs1 from './steps/failWhenValueIs1';
 import throwWhenValueIs1 from './steps/throwWhenValueIs1';
