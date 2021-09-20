@@ -12,6 +12,10 @@
   "files": [
     "dist/**/*"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Fabiencdp/Deflow"
+  },
   "scripts": {
     "dev": "nodemon -w src old/index.ts",
     "prepublish": "npm run build",
@@ -70,20 +74,19 @@
   "devDependencies": {
     "@types/debug": "^4.1.7",
     "@types/jest": "^27.0.1",
-    "@types/node": "^16.9.1",
+    "@types/node": "^16.9.4",
     "@types/redis": "^2.8.32",
-    "@typescript-eslint/eslint-plugin": "^4.31.0",
-    "@typescript-eslint/parser": "^4.31.0",
+    "@typescript-eslint/eslint-plugin": "^4.31.1",
+    "@typescript-eslint/parser": "^4.31.1",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-import": "^2.24.2",
     "eslint-plugin-jsdoc": "^36.1.0",
     "eslint-plugin-prefer-arrow": "^1.2.3",
     "eslint-plugin-prettier": "^4.0.0",
-    "execa": "^5.1.1",
     "jest": "^27.2.0",
     "nodemon": "^2.0.12",
-    "prettier": "^2.4.0",
+    "prettier": "^2.4.1",
     "redis-mock": "^0.56.3",
     "ts-jest": "^27.0.5",
     "ts-node": "^10.2.1",
