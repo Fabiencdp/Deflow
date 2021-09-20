@@ -1,4 +1,4 @@
-const DeFlow = require('../../../dist/src');
+const DeFlow = require('../../../../dist/index');
 const step1 = require('./steps/step1');
 
 const arg = process.argv.find((arg) => arg.startsWith('--id'));
@@ -16,7 +16,6 @@ setTimeout(async () => {
       cleanOnDone: false,
       taskTimeout: 100,
       taskMaxFailCount: 2,
-      taskFailRetryDelay: 100,
     })
       .addStep({
         step: step1,

@@ -2,12 +2,11 @@ import '../../helpers/redis';
 
 import redis from 'redis';
 
-import { ConnectionOptions } from '../../../src/lib/Client';
-import DeFlow from '../../../src/lib';
-import { StepHandler, Task, WorkFlow } from '../../../src';
-import { WorkFlowResult } from '../../../src/lib/WorkFlow';
-import { createNodes, getNodes, killNodes } from '../../helpers/listener';
-import PubSubManager from '../../../src/lib/PubSubManager';
+import { ConnectionOptions } from '../../../lib/Client';
+import DeFlow from '../../../lib';
+import { WorkFlow } from '../../../index';
+import { createNodes, killNodes } from '../../helpers/listener';
+import PubSubManager from '../../../lib/PubSubManager';
 
 process.env.NAME = 'listener';
 
@@ -58,5 +57,5 @@ describe('Series 5', () => {
 
     expect(result?.steps[0].taskCount).toBe(taskCount);
     expect(result?.steps[0].tasks.length).toBe(taskCount);
-  }, 10000);
+  });
 });

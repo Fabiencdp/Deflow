@@ -4,12 +4,14 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "rootDir": "./",
+    "rootDir": "./src",
     "outDir": "./dist",
     "strict": true,
     "sourceMap": true,
     "declaration": true,
     "allowJs": true
   },
-  "exclude": ["node_modules", "examples", "dist", "src/test/*"]
+  "include": ["src"],
+  "exclude": ["node_modules", "examples", "dist",
+    "src/test", "**/*.spec.ts", "coverage", "jest.*"]
 }

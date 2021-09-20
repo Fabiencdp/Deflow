@@ -2,9 +2,9 @@ import '../../helpers/redis';
 
 import redis from 'redis';
 
-import DeFlow, { Task, WorkFlow } from '../../../src';
-import { ConnectionOptions } from '../../../src/lib/Client';
-import { WorkFlowResult } from '../../../src/lib/WorkFlow';
+import DeFlow, { Task, WorkFlow } from '../../../index';
+import { ConnectionOptions } from '../../../lib/Client';
+import { WorkFlowResult } from '../../../lib/WorkFlow';
 
 import step1 from './steps/step1';
 
