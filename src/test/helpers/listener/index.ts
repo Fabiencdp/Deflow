@@ -32,9 +32,10 @@ export async function createNodes<T = string>(
   nb: number,
   opts: { file?: string; cwd?: string } = {}
 ): Promise<T[]> {
+  killNodes();
+
   const file = opts.file || './listener.js';
   const cwd = opts.cwd || __dirname;
-  killNodes();
   const array = [...Array(nb).keys()];
   const promises: Promise<T>[] = array.map(async (x) => {
     return new Promise((resolve) => {
@@ -42,6 +43,7 @@ export async function createNodes<T = string>(
         cwd,
         silent: true,
       });
+
       listeners.push(listener);
       listener.on('message', (id: T) => resolve(id));
       listener.on('disconnect', () => {
@@ -53,11 +55,5 @@ export async function createNodes<T = string>(
 }
 
 export function getNodes(): ChildProcess[] {
-  const ps = execSync(`ps -ef | grep 'deflow-node' | awk '{print $2}'`);
-  const toKill = ps
-    .toString()
-    .split('\n')
-    .filter((v) => v);
-  console.log(toKill);
   return listeners;
 }

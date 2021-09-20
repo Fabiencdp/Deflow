@@ -10,7 +10,7 @@
     "contents": "dist"
   },
   "files": [
-    "dist"
+    "dist/**/*"
   ],
   "scripts": {
     "dev": "nodemon -w src old/index.ts",

@@ -2,10 +2,10 @@ import '../../helpers/redis';
 
 import redis from 'redis';
 
-import { ConnectionOptions } from '../../../src/lib/Client';
-import DeFlow from '../../../src/lib';
-import { StepHandler, Task, WorkFlow } from '../../../src';
-import { WorkFlowResult } from '../../../src/lib/WorkFlow';
+import { ConnectionOptions } from '../../../lib/Client';
+import DeFlow from '../../../lib';
+import { StepHandler, Task, WorkFlow } from '../../../index';
+import { WorkFlowResult } from '../../../lib/WorkFlow';
 import { killNodes, createNodes } from '../../helpers/listener';
 
 import step1 from './steps/step1.js';
@@ -36,7 +36,7 @@ afterAll(async () => {
 });
 
 describe('Series 4', () => {
-  it('should share tasks equally on two nodes', async () => {
+  it('should share tasks equally on 2 nodes', async () => {
     const ids = await createNodes(1);
 
     const workflow = await WorkFlow.create('multi')
@@ -64,9 +64,9 @@ describe('Series 4', () => {
     expect(includes).toBe(false);
     expect(result[ids[0]].length).toBeGreaterThan(0);
     expect(result.creator.length).toBeGreaterThan(0);
-  }, 10000);
+  });
 
-  it('should share tasks equally on four nodes', async () => {
+  it('should share tasks equally on 4 nodes', async () => {
     const ids = await createNodes(3);
 
     const workflow = await WorkFlow.create('multi', { cleanOnDone: true })
@@ -110,11 +110,9 @@ describe('Series 4', () => {
       expect(includes).toBe(false);
       expect(result[id].length).toBeGreaterThan(0);
     });
-  }, 10000);
-});
+  });
 
-describe('Events between 9 nodes', () => {
-  it('should correctly handle nextTask events', async () => {
+  it('should correctly handle nextTask events with 10 nodes', async () => {
     await createNodes(9);
 
     const tasksData = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -146,9 +144,9 @@ describe('Events between 9 nodes', () => {
     // Should return steps data even with cleanup
     expect(data.steps.length).toBe(2);
     expect(nextTaskEventCount).toBe(expectedNextTaskEventCount);
-  }, 10000);
+  });
 
-  it('should correctly handle done events', async () => {
+  it('should correctly handle done events with 4 nodes', async () => {
     await createNodes(3);
 
     const tasksData = [10, 20, 30];
@@ -198,5 +196,5 @@ describe('Events between 9 nodes', () => {
     expect(done.length).toBe(3);
     expect(done).toStrictEqual(['event-1', 'event-2', 'event-3']);
     expect(nextTaskEventCount).toBe(9);
-  }, 10000);
+  });
 });

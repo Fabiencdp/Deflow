@@ -1,4 +1,4 @@
-import '../../test/helpers/redis-mock';
+import '../test/helpers/redis-mock';
 import redis from 'redis';
 
 import { StepHandler, WorkFlow } from '../index';
