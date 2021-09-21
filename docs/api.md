@@ -71,7 +71,9 @@ Disconnect DeFlow from redis and pubSub instance
 
 ### _`class`_ Workflow
 
-#### _`static`_ Workflow.create()
+#### _`static`_ Workflow.create(name, options?)
+Create a new workflow
+
 
 #### _`public`_ workflow.addStep()
 

@@ -74,33 +74,17 @@ export default class WorkFlow {
     this.events = new EventEmitter();
   }
 
-  static create(name: string): WorkFlow;
-  static create(name: string, opts: Partial<WorkFlowOption>): WorkFlow;
-  static create(name: string, steps: AddStep[], opts?: Partial<WorkFlowOption>): WorkFlow;
-
   /**
    * Create and save new workflow
    * @param name
-   * @param steps
    * @param opts
    */
-  static create(
-    name: string,
-    steps?: AddStep[] | Partial<WorkFlowOption>,
-    opts: Partial<WorkFlowOption> = {}
-  ): WorkFlow {
+  static create(name: string, opts: Partial<WorkFlowOption> = {}): WorkFlow {
     const id = slugify([name, generate()].join(':'));
     const queueId = [id, 'steps'].join(':');
 
-    const inputOpts = typeof steps === 'object' && !Array.isArray(steps) ? steps : opts;
-    const options = { ...defaultOptions, ...inputOpts };
-    const workFlow = new WorkFlow({ id, name, queueId, options });
-
-    if (Array.isArray(steps) && steps.length > 0) {
-      workFlow.#addedSteps = steps;
-    }
-
-    return workFlow;
+    const options = { ...defaultOptions, ...opts };
+    return new WorkFlow({ id, name, queueId, options });
   }
 
   /**
