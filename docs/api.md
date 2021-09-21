@@ -4,50 +4,46 @@
 
 <!-- toc -->
 
-- [class: DeFlow](#class-deflow)
-  * [`_static_` Deflow.register(options)](#_static_-deflowregisteroptions)
-  * [`_static_` Deflow.unregister()](#_static_-deflowunregister)
-- [Workflow](#workflow)
-  * [Workflow.create()](#workflowcreate)
-  * [Workflow.addStep()](#workflowaddstep)
-  * [Workflow.run()](#workflowrun)
-  * [Workflow.results()](#workflowresults)
-  * [Workflow.events](#workflowevents)
-  * [Workflow.events: 'done'](#workflowevents-done)
-  * [Workflow.events: 'nextTask'](#workflowevents-nexttask)
-- [StepHandler](#stephandler)
+- [_`class`_ DeFlow](#_class_-deflow)
+  * [_`static`_ Deflow.register(options)](#_static_-deflowregisteroptions)
+  * [_`static`_ Deflow.unregister()](#_static_-deflowunregister)
+- [_`class`_ Workflow](#_class_-workflow)
+  * [_`static`_ Workflow.create()](#_static_-workflowcreate)
+  * [_`public`_ workflow.addStep()](#_public_-workflowaddstep)
+  * [_`public`_ workflow.run()](#_public_-workflowrun)
+  * [_`public`_ workflow.results()](#_public_-workflowresults)
+  * [_`public`_ workflow.events](#_public_-workflowevents)
+  * [_`public`_ workflow.events: 'done'](#_public_-workflowevents-done)
+  * [_`public`_ workflow.events: 'nextTask'](#_public_-workflowevents-nexttask)
+- [_`class`_ StepHandler](#_class_-stephandler)
   * [StepHandler.constructor](#stephandlerconstructor)
-- [Step](#step)
-  * [step.id](#stepid)
-  * [step.name](#stepname)
-  * [step.index](#stepindex)
-  * [step.data](#stepdata)
-  * [step.taskCount](#steptaskcount)
-  * [step.options](#stepoptions)
-  * [step.workflowId](#stepworkflowid)
-  * [step.key](#stepkey)
-  * [step.parentKey](#stepparentkey)
-  * [step.addTasks()](#stepaddtasks)
-  * [step.addAfter()](#stepaddafter)
-  * [step.getProgress()](#stepgetprogress)
-  * [step.getResults()](#stepgetresults)
-- [Task](#task)
-  * [task.data](#taskdata)
-  * [task.result](#taskresult)
-  * [task.error](#taskerror)
-  * [task.failedCount](#taskfailedcount)
-  * [task.addTasks()](#taskaddtasks)
-  * [step.addAfter()](#stepaddafter-1)
-  * [step.getProgress()](#stepgetprogress-1)
-  * [step.getResults()](#stepgetresults-1)
+- [_`class`_ Step](#_class_-step)
+  * [_`public`_ step.id](#_public_-stepid)
+  * [_`public`_ step.name](#_public_-stepname)
+  * [_`public`_ step.index](#_public_-stepindex)
+  * [_`public`_ step.data](#_public_-stepdata)
+  * [_`public`_ step.taskCount](#_public_-steptaskcount)
+  * [_`public`_ step.options](#_public_-stepoptions)
+  * [_`public`_ step.workflowId](#_public_-stepworkflowid)
+  * [_`public`_ step.key](#_public_-stepkey)
+  * [_`public`_ step.parentKey](#_public_-stepparentkey)
+  * [_`public`_ step.addTasks()](#_public_-stepaddtasks)
+  * [_`public`_ step.addAfter()](#_public_-stepaddafter)
+  * [_`public`_ step.getProgress()](#_public_-stepgetprogress)
+  * [_`public`_ step.getResults()](#_public_-stepgetresults)
+- [_`class`_ Task](#_class_-task)
+  * [_`public`_ task.data](#_public_-taskdata)
+  * [_`public`_ task.result](#_public_-taskresult)
+  * [_`public`_ task.error](#_public_-taskerror)
+  * [_`public`_ task.failedCount](#_public_-taskfailedcount)
 
 <!-- tocstop -->
 
-### class: DeFlow
+### _`class`_ DeFlow
 
 DeFlow class provide static method to connect with your redis backend
 
-#### `_static_` Deflow.register(options) 
+#### _`static`_ Deflow.register(options) 
 
 Register your nodeJS process to the redis backend through DeFlow.
 Run this method as soon as possible in your application.
@@ -67,74 +63,66 @@ Run this method as soon as possible in your application.
 `checkProcessQueueInterval` will trigger a method that release "ghost jobs" (i.e. append when a node crash while doing a job, letting the job in a process queue forever)
 The release time is based on the [taskTimeout option](#step.options) of the current processed step, for example, if a task as a `taskTimeout` value of 2000ms, and the node handling that task make an unexpected crash, the task will be replaced in the pending queue after `taskTimeout` + (0 > `checkProcessQueueInterval`) ms.
 
-#### `_static_` Deflow.unregister()
+#### _`static`_ Deflow.unregister()
 
 Disconnect DeFlow from redis and pubSub instance
 
 - returns: &lt;[Promise]&lt;[void]>>
 
-### Workflow
+### _`class`_ Workflow
 
-#### Workflow.create()
+#### _`static`_ Workflow.create()
 
-#### Workflow.addStep()
+#### _`public`_ workflow.addStep()
 
-#### Workflow.run()
+#### _`public`_ workflow.run()
 
-#### Workflow.results()
+#### _`public`_ workflow.results()
 
-#### Workflow.events
+#### _`public`_ workflow.events
 
-#### Workflow.events: 'done'
+#### _`public`_ workflow.events: 'done'
 
-#### Workflow.events: 'nextTask'
+#### _`public`_ workflow.events: 'nextTask'
 
-### StepHandler
+### _`class`_ StepHandler
 
 #### StepHandler.constructor
 
-### Step
+### _`class`_ Step
 
-#### step.id
+#### _`public`_ step.id
 
-#### step.name
+#### _`public`_ step.name
 
-#### step.index
+#### _`public`_ step.index
 
-#### step.data
+#### _`public`_ step.data
 
-#### step.taskCount
+#### _`public`_ step.taskCount
 
-#### step.options
+#### _`public`_ step.options
 
-#### step.workflowId
+#### _`public`_ step.workflowId
 
-#### step.key
+#### _`public`_ step.key
 
-#### step.parentKey
+#### _`public`_ step.parentKey
 
-#### step.addTasks()
+#### _`public`_ step.addTasks()
 
-#### step.addAfter()
+#### _`public`_ step.addAfter()
 
-#### step.getProgress()
+#### _`public`_ step.getProgress()
 
-#### step.getResults()
+#### _`public`_ step.getResults()
 
-### Task
+### _`class`_ Task
 
-#### task.data
+#### _`public`_ task.data
 
-#### task.result
+#### _`public`_ task.result
 
-#### task.error
+#### _`public`_ task.error
 
-#### task.failedCount
-
-#### task.addTasks()
-
-#### step.addAfter()
-
-#### step.getProgress()
-
-#### step.getResults()
+#### _`public`_ task.failedCount
