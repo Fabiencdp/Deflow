@@ -48,17 +48,17 @@ DeFlow class provide static method to connect with your redis backend
 Register your nodeJS process to the redis backend through DeFlow.
 Run this method as soon as possible in your application.
 
-- `options` &lt;[Object]>
+- `options` <[Object]>
 
-  - `connection` &lt;[object]> Redis connection options
-    - `host` &lt;?[string]> Redis hostname
-    - `port` &lt;?[number]> Redis port (Defaults to `6379`)
-    - `maxAttempts` &lt;?[number]> Redis max_attempts parameter
-    - `connectTimeout` &lt;?[number]> Redis connect_timeout parameter
-    - `retryMaxDelay` &lt;?[number]>\` Redis retry_max_delay parameter
-  - `checkProcessQueueInterval` &lt;?[number]> An interval in ms at which the node will check for "ghost jobs" to replace them in the pending queue (defaults to `2000`)
+  - `connection` <[object]> Redis connection options
+    - `host` <[string]> Redis hostname
+    - `port` <?[number]> Redis port (Defaults to `6379`)
+    - `maxAttempts` <?[number]> Redis max_attempts parameter
+    - `connectTimeout` <?[number]> Redis connect_timeout parameter
+    - `retryMaxDelay` <?[number]> Redis retry_max_delay parameter
+  - `checkProcessQueueInterval` <?[number]> An interval in ms at which the node will check for "ghost jobs" to replace them in the pending queue (defaults to `2000`)
 
-- returns: &lt;[DeFlow]> DeFlow instance
+- returns: <[DeFlow]> DeFlow instance
 
 `checkProcessQueueInterval` will trigger a method that release "ghost jobs" (i.e. append when a node crash while doing a job, letting the job in a process queue forever)
 The release time is based on the [taskTimeout option](#step.options) of the current processed step, for example, if a task as a `taskTimeout` value of 2000ms, and the node handling that task make an unexpected crash, the task will be replaced in the pending queue after `taskTimeout` + (0 > `checkProcessQueueInterval`) ms.
@@ -67,7 +67,7 @@ The release time is based on the [taskTimeout option](#step.options) of the curr
 
 Disconnect DeFlow from redis and pubSub instance
 
-- returns: &lt;[Promise]&lt;[void]>>
+- returns: <[Promise]<[void]>>
 
 ### _`class`_ Workflow
 
@@ -126,3 +126,58 @@ Disconnect DeFlow from redis and pubSub instance
 #### _`public`_ task.error
 
 #### _`public`_ task.failedCount
+
+
+
+
+
+[axnode]: #accessibilitysnapshotoptions 'AXNode'
+[accessibility]: #class-accessibility 'Accessibility'
+[array]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array 'Array'
+[body]: #class-body 'Body'
+[browsercontext]: #class-browsercontext 'BrowserContext'
+[browserfetcher]: #class-browserfetcher 'BrowserFetcher'
+[browser]: #class-browser 'Browser'
+[buffer]: https://nodejs.org/api/buffer.html#buffer_class_buffer 'Buffer'
+[cdpsession]: #class-cdpsession 'CDPSession'
+[childprocess]: https://nodejs.org/api/child_process.html 'ChildProcess'
+[connectiontransport]: ../src/WebSocketTransport.js 'ConnectionTransport'
+[consolemessage]: #class-consolemessage 'ConsoleMessage'
+[coverage]: #class-coverage 'Coverage'
+[dialog]: #class-dialog 'Dialog'
+[elementhandle]: #class-elementhandle 'ElementHandle'
+[element]: https://developer.mozilla.org/en-US/docs/Web/API/element 'Element'
+[error]: https://nodejs.org/api/errors.html#errors_class_error 'Error'
+[executioncontext]: #class-executioncontext 'ExecutionContext'
+[filechooser]: #class-filechooser 'FileChooser'
+[frame]: #class-frame 'Frame'
+[jshandle]: #class-jshandle 'JSHandle'
+[keyboard]: #class-keyboard 'Keyboard'
+[map]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map 'Map'
+[mouse]: #class-mouse 'Mouse'
+[object]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object 'Object'
+[page]: #class-page 'Page'
+[promise]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise 'Promise'
+[httprequest]: #class-httprequest 'HTTPRequest'
+[httpresponse]: #class-httpresponse 'HTTPResponse'
+[securitydetails]: #class-securitydetails 'SecurityDetails'
+[serializable]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#Description 'Serializable'
+[target]: #class-target 'Target'
+[timeouterror]: #class-timeouterror 'TimeoutError'
+[touchscreen]: #class-touchscreen 'Touchscreen'
+[tracing]: #class-tracing 'Tracing'
+[uievent.detail]: https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/detail 'UIEvent.detail'
+[uskeyboardlayout]: ../src/common/USKeyboardLayout.ts 'USKeyboardLayout'
+[unixtime]: https://en.wikipedia.org/wiki/Unix_time 'Unix Time'
+[webworker]: #class-webworker 'Worker'
+[boolean]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type 'Boolean'
+[function]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Function 'Function'
+[iterator]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols 'Iterator'
+[number]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Number_type 'Number'
+[origin]: https://developer.mozilla.org/en-US/docs/Glossary/Origin 'Origin'
+[selector]: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Selectors 'selector'
+[stream.readable]: https://nodejs.org/api/stream.html#stream_class_stream_readable 'stream.Readable'
+[string]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type 'String'
+[symbol]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Symbol_type 'Symbol'
+[xpath]: https://developer.mozilla.org/en-US/docs/Web/XPath 'xpath'
+[customqueryhandler]: #interface-customqueryhandler 'CustomQueryHandler'
