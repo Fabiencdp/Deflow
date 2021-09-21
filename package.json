@@ -33,7 +33,7 @@
     "example:tree": "nodemon --inspect -w src examples/tree/index.ts",
     "example:multi": "nodemon --inspect -w src examples/multi/index.ts",
     "validate-branch-name": "validate-branch-name",
-    "gen-api-toc": "npx gen-toc --write ./docs/api.md"
+    "gen-api-toc": "npx markdown-toc -i ./docs/api.md"
   },
   "nodemonConfig": {
     "restartable": "rs",
