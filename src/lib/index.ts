@@ -71,7 +71,7 @@ export default class DeFlow {
   }
 
   /**
-   * leave instance connection
+   * Disconnect from redis instance
    */
   public static async unregister(): Promise<void> {
     const { instance } = DeFlow;
