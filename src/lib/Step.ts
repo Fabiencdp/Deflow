@@ -316,8 +316,8 @@ export default class Step<SD = any, TD = any, TR = any> {
   /**
    *
    */
-  public async getResults(): Promise<Task[]> {
-    return this.#getTaskRange(0, 100);
+  public async getResults(): Promise<(Task<TD, TR> & { result: TR })[]> {
+    return this.#getTaskRange(0, 100) as Promise<(Task<TD, TR> & { result: TR })[]>;
   }
 
   /**
@@ -645,7 +645,11 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @param stop
    * @param acc
    */
-  async #getTaskRange(start: number, stop: number, acc: Task[] = []): Promise<Task[]> {
+  async #getTaskRange(
+    start: number,
+    stop: number,
+    acc: Task<TD, TR>[] = []
+  ): Promise<Task<TD, TR>[]> {
     return new Promise((resolve, reject) => {
       this.#deflow.client.lrange(this.#taskDoneQueue, start, stop, (err, reply) => {
         if (err) {

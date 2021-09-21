@@ -5,10 +5,10 @@
 DeFlow attempt to fill the gap between a job scheduler and an ETL.  
 It manage workflow queue with 3 mains elements : 
 
-##### Workflow:
-A Workflow define a set of one or more steps, there created by a node process.
+#### Workflow:
+A Workflow defines a set of one or more steps, there created by a node process.
 
-##### Steps:
+#### Steps:
 Steps define a specific job that compose the workflow.
 They're treated sequentially and are described by a single file (module).
 This module file define the step lifecycle with predefined methods (before/after, error handler, task handler).
@@ -16,28 +16,21 @@ This module file define the step lifecycle with predefined methods (before/after
 Each Step contain one or more tasks. 
 A step can create one or more other steps, that way they can be multidimensional. 
 
-##### Tasks:
+#### Tasks:
 Tasks are treated by the step "handler" lifecycle method, they are designed to be treated concurrently between node.
 Tasks are handled functionnaly, accepting params and returning results. 
 Tasks are configurable and can have timeout and retry strategy.
 
 # Main features
-- Distributed: Intelligent distribution and parallelization of bunch of tasks between multiple node handler.
+- Distributed: Intelligent distribution and parallelization of tasks between multiple nodeJS process.
 - Decentralized: Designed to be crash proof, backed by Redis, pub-sub communication between nodes.
 - Lifecycle: Lifecycle method allow you to manage and evolve the workflow process. 
 - Living workflow: Create steps or tasks on the fly, depending on the previous results. 
-
 - Promises based API.
-- Module declaration.
-- Configurable concurrency, error handling and more.
-- Compatible with TypeScript.
-- Dynamic handler declaration.
+- Configurable concurrency, retries, error handling and more.
+- TypeScript support.
 
-### Coming next
-- More events that you can listen too
-- Advanced concurrency management
-
-### Getting started
+## Getting started
 
 install:
 ```
@@ -46,7 +39,7 @@ npm i deflow
 
 declare a step handler:
 ```typescript
-// steps/string-to-number.ts 
+// ./steps/string-to-number.ts 
 
 import { StepHandler } from 'deflow';
   
@@ -58,21 +51,19 @@ import { StepHandler } from 'deflow';
   export default new StepHandler({
 
     /**
-     * Init method allow you to prepare tasks based on anything
+     * Init method allow you to prepare tasks based on anything you want
      * @param step
      */
     async beforeAll(step) {
-      const tasks = ['12', '10', '7', '45']; // You can fetch data from external souce or db
+      const tasks = ['12', '10', '7', '45']; // You can fetch data from external source or db
       await step.addTasks(tasks);
     },
   
     /**
-     * This function will run for each task of the step
+     * This method will run for each task of the step
      * @param task
      */
     async handler(task) {
-      console.log('Step1: handler', task.data);
-      await new Promise((r) => setTimeout(() => r(null), 1000));
       return parseFloat(task.data);
     },
   
@@ -83,7 +74,8 @@ import { StepHandler } from 'deflow';
      * @param step
      */
     async afterEach(task, step) {
-      console.log('Step1: afterEach', await step.getProgress());
+      const progress = await step.getProgress();
+      console.log('Step1: afterEach', progress);
       console.log('Step1: Result', task.result); // Should be a floating number
     },
   
@@ -101,14 +93,14 @@ import { StepHandler } from 'deflow';
 
 declare a workflow:
 ```typescript
-// index.ts 
+// ./index.ts 
 
 import DeFlow, { WorkFlow } from 'deflow';
 
 import stringToNumber from './steps/string-to-number';
 import antherProcessStep from './steps/anther-process-step';
 
-// Register deflow to your redis backend  
+// Register deflow to your redis backend
 DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
 
 /**
@@ -116,12 +108,105 @@ DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
  */
 function runWorkflow() {
   WorkFlow
-    .create('some-name') // Some custom name 
+    .create('some-custom-name')
     .addStep({ step: stringToNumber }) // Register the step
     .addStep({ step: antherProcessStep }) // Register the step
-    .run();
+    .run(); // Run the workflow
 }
 
-// Run the workflow from somewhere in your code 
-runWorkflow();
+// Run the workflow from somewhere in your code (make sure redis is connected before running it)
+setTimeout(() => {
+    runWorkflow();
+}, 2000)
 ```
+
+###### [Check the complete API Documentation](https://github.com/Fabiencdp/Deflow/tree/main/docs/api.md)
+
+
+## Making things type safe
+
+DeFlow allow you to define type safe stepHandler :
+
+```typescript
+/**
+ * Sending invoices for each user having purchased a product today
+ */
+export default new StepHandler<
+  { date: Date }, // step data type
+  { productName: string; productPrice: number; userEmail: string; userName: string }, // Task data type
+  { sentStatus: boolean } // Task result type
+>({
+  /**
+   * Fetch user data from a database
+   */
+  async beforeAll(step) {
+    const orders = await Order.find({ createdAt: step.data.date });
+
+    // Create one task by order
+    const tasks = orders.map((order) => ({
+      productName: order.name,
+      productPrice: order.price,
+      userEmail: order.user.email,
+      userName: order.user.name,
+    }));
+
+    return step.addTasks(tasks); // Each task will be processed by "handler" method
+  },
+
+  /**
+   * For each task, send the invoice by email
+   * Note that you can also access to the step "global" data
+   * @param task
+   * @param step
+   */
+  async handler(task, step) {
+    const sendMailRes = await sendmail({
+      from: 'no-reply@yourdomain.com',
+      to: task.data.userEmail,
+      subject: `Your ${step.data.date} invoice for ${task.data.productName}`,
+      html: `
+          Hello ${task.data.userName},
+          You just spent ${task.data.productPrice} for ${task.data.productName}
+        `,
+    });
+
+    return { sentStatus: sendMailRes.status };
+  },
+
+  /**
+   * After all task done, log some important things and take needed actions based on results
+   * @param step
+   */
+  async afterAll(step) {
+    const res = await step.getResults();
+    const errors = res.filter((task) => task.result.sentStatus === false);
+
+    if (errors.length > 0) {
+      console.warn(`WARNING: ${errors.length} sendmail errors! Will try fallback method`);
+
+      // Add another step right after this one when we have errors
+      await step.addAfter({
+        step: sendMailFallBackStep,
+        tasks: errors, // If needed, you can directly add tasks while adding step
+        options: {
+          taskConcurrency: 3, // Allow each node to treat 3 tasks concurrently
+          taskTimeout: 2000, // Allow a timeout of 2000ms per task
+          taskMaxFailCount: 3, // Allow a maximum of 3 retries
+        },
+      });
+    }
+  },
+});
+
+```
+
+## Resources
+
+- [API Documentation](https://github.com/Fabiencdp/Deflow/tree/main/docs/api.md)
+- [Examples](https://github.com/Fabiencdp/Deflow/tree/main/examples)
+
+
+### Coming next
+- More events that you can listen too
+- Advanced concurrency management
+- Reducer
