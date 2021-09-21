@@ -400,7 +400,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * Run next task recursively
    */
   async #getNextTaskAndRun(): Promise<void> {
-    const { taskTimeout, taskMaxFailCount } = this.options;
+    const { taskTimeout } = this.options;
 
     const task = await this.#getNextTask();
     if (!task) {

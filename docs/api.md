@@ -72,10 +72,33 @@ Disconnect DeFlow from redis and pubSub instance
 ### _`class`_ Workflow
 
 #### _`static`_ Workflow.create(name, options?)
-Create a new workflow
+Create a new workflow instance 
+
+- `name` <[string]> Custom workflow name
+- `options` <?[object]> Workflow main options
+    - `ifExist` <?[string]> If a workflow with the same name exist, replace it or create another one, accept `replace` or `create` (Defaults to `create`)
+    - `cleanOnDone` <?[boolean]> Remove redis key/list and everything related to workflow when it's done (Defaults to `true`)
+    - TODO:
+   
+- returns: <[Workflow]> Workflow instance
 
 
-#### _`public`_ workflow.addStep()
+#### _`public`_ workflow.addStep(data)
+
+Add a step to the workflow instance 
+
+- `data` <?[object]> Workflow main options
+    - `step` <[string]|[StepHandler](#_class_-stephandler)> the exported step to execute, or an absolute path to it. When using a stepHandler instance, deflow automatically resolve the module path to store it as an absolute path in the redis database, allowing other nodes to execute the stepHandler.
+    - `data` <?[any]> Any kind of data needed by the step (user defined)
+    - `options` <?[object]> Step options, this declaration overrides stepHandler options, and so workflow options
+        - `taskTimeout` <?[number]> Timeout in ms after which the task will be considered as failed (task.error will be filled) (Defaults to `0`)
+        - `taskConcurrency` <?[number]> Number of task that **one nodeJS process** can do in parallel (Default to `1`)
+        - `taskMaxFailCount` <?[number]> Define the max number of retry possible for a task (Default to `1`)
+        - `taskFailRetryDelay` <?[number]> Time in ms to delay the task execution when retrying (Default to `null`)
+      
+- returns: <[Workflow]> Workflow instance
+
+test   <embed src="./_stepOptions.md" />
 
 #### _`public`_ workflow.run()
 
