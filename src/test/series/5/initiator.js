@@ -25,7 +25,7 @@ setTimeout(async () => {
 
     process.send({ id, workflowId: workflow.id, taskCount: tasks.length });
 
-    workflow.events.on('nextTask', () => {
+    workflow.on('nextTask', () => {
       throw new Error('crashed');
     });
   } catch (e) {

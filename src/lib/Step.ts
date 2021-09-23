@@ -5,9 +5,9 @@ import slugify from 'slugify';
 import Task, { JSONTask } from './Task';
 import WorkFlow from './WorkFlow';
 import StepHandler, { StepHandlerFn } from './StepHandler';
+import PubSubManager, { Action } from './PubSubManager';
 
 import DeFlow from './index';
-import PubSubManager, { Action } from './PubSubManager';
 
 const debug = Debug('deflow:step');
 
@@ -82,19 +82,17 @@ const defaultStepOptions: StepOptions = {
  */
 export default class Step<SD = any, TD = any, TR = any> {
   public id: string;
-  public name: string;
-  public index: number;
+  public name: string; // TODO: private or remove
   public data: SD;
-
-  public module: string;
-  public moduleFn?: StepHandlerFn;
-
   public taskCount: number;
   public options = defaultStepOptions;
-
   public workflowId: string;
   public key: string;
-  public parentKey?: string;
+
+  #index: number;
+  #module: string;
+  #moduleFn?: StepHandlerFn;
+  #parentKey?: string;
 
   #added: Step[] = [];
 
@@ -106,18 +104,18 @@ export default class Step<SD = any, TD = any, TR = any> {
   constructor(json: JSONStep<SD>) {
     this.id = json.id;
     this.name = json.name;
-    this.index = json.index;
     this.data = json.data;
 
-    this.module = json.module;
-    this.moduleFn = json.moduleFn;
+    this.#index = json.index;
+    this.#module = json.module;
+    this.#moduleFn = json.moduleFn;
 
     this.taskCount = json.taskCount;
     this.options = json.options;
 
     this.workflowId = json.workflowId;
     this.key = json.key;
-    this.parentKey = json.parentKey;
+    this.#parentKey = json.parentKey;
   }
 
   /**
@@ -251,7 +249,7 @@ export default class Step<SD = any, TD = any, TR = any> {
 
     // Re-define steps score when adding one by one
     if (this.#added.length > 0) {
-      index = this.#added[this.#added.length - 1].index - 1;
+      index = this.#added[this.#added.length - 1].#index - 1;
     }
 
     const name = [step.filename, index].join('-');
@@ -327,7 +325,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     debug('getPrevious');
 
     return new Promise((resolve) => {
-      const max = `(${this.index}`;
+      const max = `(${this.#index}`;
 
       this.#deflow.client.send_command(
         'ZRANGE',
@@ -408,7 +406,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     }
 
     // Pub event
-    if (this.moduleFn === 'module') {
+    if (this.#moduleFn === 'module') {
       PubSubManager.publish({
         action: Action.NextTask,
         data: { id: task.id, workflowId: this.workflowId, data: task.data, stepKey: task.stepKey },
@@ -441,7 +439,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     await this.#deflow.client.zremrangebyscore('process-queue', score, score);
 
     // Run after each method
-    if (this.moduleFn === 'module') {
+    if (this.#moduleFn === 'module') {
       const { module } = await this.#getModule();
       if (module && typeof module.afterEach === 'function') {
         await module.afterEach(task, this);
@@ -481,7 +479,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * Get the module from module
    */
   async #getModule(): Promise<{ module: StepHandler; path: string }> {
-    return Step.getModule(this.module);
+    return Step.getModule(this.#module);
   }
 
   /**
@@ -502,10 +500,10 @@ export default class Step<SD = any, TD = any, TR = any> {
     }
 
     // Get module fn
-    if (this.moduleFn === 'afterAll' && typeof module.afterAll === 'function') {
+    if (this.#moduleFn === 'afterAll' && typeof module.afterAll === 'function') {
       const step = await this.#getHandlerStep();
       method = module.afterAll(step);
-    } else if (this.moduleFn === 'beforeAll' && typeof module.beforeAll === 'function') {
+    } else if (this.#moduleFn === 'beforeAll' && typeof module.beforeAll === 'function') {
       const step = await this.#getHandlerStep();
       method = module.beforeAll(step);
     } else if (typeof module.handler === 'function') {
@@ -528,8 +526,8 @@ export default class Step<SD = any, TD = any, TR = any> {
    * return step when using before/after module
    */
   async #getHandlerStep(): Promise<Step> {
-    if (this.parentKey) {
-      return Step.getByKey(this.parentKey);
+    if (this.#parentKey) {
+      return Step.getByKey(this.#parentKey);
     } else {
       return this;
     }
@@ -541,7 +539,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @param error
    */
   async #runOnHandlerError(task: Task, error: Error): Promise<any> {
-    const { module } = await Step.getModule(this.module);
+    const { module } = await Step.getModule(this.#module);
     if (typeof module.onHandlerError === 'function') {
       module.onHandlerError(task, this, error);
     }
@@ -574,9 +572,9 @@ export default class Step<SD = any, TD = any, TR = any> {
   async #onDone(): Promise<void> {
     debug('onDone');
 
-    this.#deflow.client.zrangebyscore(this.#list, this.index, this.index, async (err, reply) => {
+    this.#deflow.client.zrangebyscore(this.#list, this.#index, this.#index, async (err, reply) => {
       if (err) {
-        throw new Error(`Step ${this.name} with score ${this.index} does not exist in store`);
+        throw new Error(`Step ${this.name} with score ${this.#index} does not exist in store`);
       }
 
       if (reply.length > 0) {
@@ -611,8 +609,8 @@ export default class Step<SD = any, TD = any, TR = any> {
         }
 
         debug(`step done: ${this.name}`);
-        this.#deflow.client.zremrangebyscore(this.#list, this.index, this.index, () => {
-          this.#deflow.client.zadd(this.#doneList, this.index, this.#toJSONListItem);
+        this.#deflow.client.zremrangebyscore(this.#list, this.#index, this.#index, () => {
+          this.#deflow.client.zadd(this.#doneList, this.#index, this.#toJSONListItem);
           return resolve(true);
         });
       });
@@ -690,7 +688,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     });
 
     const queueData = new Promise<boolean>((resolve, reject) => {
-      deFlow.client.zadd(this.#list, this.index, this.#toJSONListItem, (err, status) => {
+      deFlow.client.zadd(this.#list, this.#index, this.#toJSONListItem, (err, status) => {
         if (err) {
           return reject(err);
         }
@@ -746,7 +744,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       id: this.id,
       key: this.key,
       name: this.name,
-      parentKey: this.parentKey,
+      parentKey: this.#parentKey,
     } as JSONStepListItem);
   }
 
@@ -758,14 +756,15 @@ export default class Step<SD = any, TD = any, TR = any> {
       id: this.id,
       key: this.key,
       name: this.name,
-      index: this.index,
-      module: this.module,
-      moduleFn: this.moduleFn,
       workflowId: this.workflowId,
       data: this.data,
       options: this.options,
-      parentKey: this.parentKey,
       taskCount: this.taskCount,
+
+      index: this.#index,
+      module: this.#module,
+      moduleFn: this.#moduleFn,
+      parentKey: this.#parentKey,
     };
   }
 }

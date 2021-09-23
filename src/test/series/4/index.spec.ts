@@ -47,7 +47,7 @@ describe('Series 4', () => {
       .run();
 
     const data: WorkFlowResult = await new Promise((resolve) => {
-      workflow.events.on('done', resolve);
+      workflow.on('done', resolve);
     });
 
     const result = data.steps[0].tasks
@@ -81,7 +81,7 @@ describe('Series 4', () => {
       .run();
 
     const data: WorkFlowResult = await new Promise((resolve) => {
-      workflow.events.on('done', (data) => {
+      workflow.on('done', (data) => {
         resolve(data);
       });
     });
@@ -131,12 +131,12 @@ describe('Series 4', () => {
       })
       .run();
 
-    workflow.events.on('nextTask', () => {
+    workflow.on('nextTask', () => {
       nextTaskEventCount += 1;
     });
 
     const data: WorkFlowResult = await new Promise((resolve) => {
-      workflow.events.on('done', (data) => {
+      workflow.on('done', (data) => {
         resolve(data);
       });
     });
@@ -166,15 +166,15 @@ describe('Series 4', () => {
       .addStep({ step: step1 as StepHandler, tasks: tasksData })
       .run();
 
-    w1.events.on('nextTask', () => {
+    w1.on('nextTask', () => {
       nextTaskEventCount += 1;
     });
 
-    w2.events.on('nextTask', () => {
+    w2.on('nextTask', () => {
       nextTaskEventCount += 1;
     });
 
-    w3.events.on('nextTask', () => {
+    w3.on('nextTask', () => {
       nextTaskEventCount += 1;
     });
 
@@ -186,9 +186,9 @@ describe('Series 4', () => {
         }
       }
 
-      w1.events.on('done', onDone);
-      w2.events.on('done', onDone);
-      w3.events.on('done', onDone);
+      w1.on('done', onDone);
+      w2.on('done', onDone);
+      w3.on('done', onDone);
     });
 
     done.sort();

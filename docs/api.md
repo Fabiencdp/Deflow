@@ -98,17 +98,52 @@ Add a step to the workflow instance
       
 - returns: <[Workflow]> Workflow instance
 
-test   <embed src="./_stepOptions.md" />
-
 #### _`public`_ workflow.run()
+
+Run the workflow, will store redis data and start step processing 
+
+- returns: <[Workflow]> Workflow instance
 
 #### _`public`_ workflow.results()
 
-#### _`public`_ workflow.events
+Return the complete workflow results,
 
-#### _`public`_ workflow.events: 'done'
+- returns: <[Promise]<[object]>
+  - `id` <[string]> Workflow unique id
+  - `name` <[string]> Workflow name
+  - `options` <[object]> Workflow options
+  - `steps` <[array]<[object]>> Executed steps
+    - `options` <[object]> Step options
+    - `id` <[string]> Step unique id
+    - `name` <[string]> Step name
+    - `data` <[any]|[undefined]> Optional data passed to the step
+    - `taskCount` <[number]> Number of task attached to the step
+    - `workflowId` <[string]> The workflow id
+    - `key` <[string]> The redis key identifier of the step
+    - `tasks` <[array]<[object]>> Tasks list and results 
+        - `id` <[string]> Task unique id
+        - `data` <[any]> Task data 
+        - `failedCount` <[number]> Number of error happened
+        - `stepKey` <[string]> The parent step id
+        - `result` <[any]|[undefined]> Task result if success
+        - `error` <?[string]> Error message
 
-#### _`public`_ workflow.events: 'nextTask'
+#### _`event`_ workflow: 'done'
+
+Emitted when the workflow is done, returning compete workflow results
+
+- returns: [_`public`_ workflow.results()](#_public_-workflowresults)
+
+#### _`event`_ workflow: 'nextTask'
+
+Emitted when a task is started by a node
+
+- returns: <[object]>
+    - `id` <[string]> Task unique id
+    - `data` <[any]> Task data 
+    - `failedCount` <[number]> Number of error happened
+    - `stepKey` <[string]> The parent step id
+    - `workflowId` <[string]> The workflow id
 
 ### _`class`_ StepHandler
 

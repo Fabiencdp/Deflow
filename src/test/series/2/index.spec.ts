@@ -43,12 +43,12 @@ describe('Series 2', () => {
       })
       .run();
 
-    workflow.events.on('nextTask', () => {
+    workflow.on('nextTask', () => {
       jest.advanceTimersByTime(checkProcessQueueInterval);
     });
 
     const result: WorkFlowResult = await new Promise((resolve) => {
-      workflow.events.on('done', resolve);
+      workflow.on('done', resolve);
     });
 
     const tasks = result.steps.reduce((acc: Task[], r) => [...acc, ...r.tasks], []);
