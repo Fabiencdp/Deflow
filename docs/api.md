@@ -8,34 +8,21 @@
   * [_`static`_ Deflow.register(options)](#_static_-deflowregisteroptions)
   * [_`static`_ Deflow.unregister()](#_static_-deflowunregister)
 - [_`class`_ Workflow](#_class_-workflow)
-  * [_`static`_ Workflow.create()](#_static_-workflowcreate)
-  * [_`public`_ workflow.addStep()](#_public_-workflowaddstep)
+  * [_`static`_ Workflow.create(name, options?)](#_static_-workflowcreatename-options)
+  * [_`public`_ workflow.addStep(addStepData)](#_public_-workflowaddstepaddstepdata)
   * [_`public`_ workflow.run()](#_public_-workflowrun)
   * [_`public`_ workflow.results()](#_public_-workflowresults)
-  * [_`public`_ workflow.events](#_public_-workflowevents)
-  * [_`public`_ workflow.events: 'done'](#_public_-workflowevents-done)
-  * [_`public`_ workflow.events: 'nextTask'](#_public_-workflowevents-nexttask)
+  * [_`event`_ workflow: 'done'](#_event_-workflow-done)
+  * [_`event`_ workflow: 'nextTask'](#_event_-workflow-nexttask)
 - [_`class`_ StepHandler](#_class_-stephandler)
   * [StepHandler.constructor](#stephandlerconstructor)
+  * [StepHandler.constructor.options](#stephandlerconstructoroptions)
 - [_`class`_ Step](#_class_-step)
-  * [_`public`_ step.id](#_public_-stepid)
-  * [_`public`_ step.name](#_public_-stepname)
-  * [_`public`_ step.index](#_public_-stepindex)
-  * [_`public`_ step.data](#_public_-stepdata)
-  * [_`public`_ step.taskCount](#_public_-steptaskcount)
-  * [_`public`_ step.options](#_public_-stepoptions)
-  * [_`public`_ step.workflowId](#_public_-stepworkflowid)
-  * [_`public`_ step.key](#_public_-stepkey)
-  * [_`public`_ step.parentKey](#_public_-stepparentkey)
-  * [_`public`_ step.addTasks()](#_public_-stepaddtasks)
-  * [_`public`_ step.addAfter()](#_public_-stepaddafter)
+  * [_`public`_ step.addTasks(taskData[])](#_public_-stepaddtaskstaskdata)
+  * [_`public`_ step.addAfter(addStepData)](#_public_-stepaddafteraddstepdata)
   * [_`public`_ step.getProgress()](#_public_-stepgetprogress)
   * [_`public`_ step.getResults()](#_public_-stepgetresults)
 - [_`class`_ Task](#_class_-task)
-  * [_`public`_ task.data](#_public_-taskdata)
-  * [_`public`_ task.result](#_public_-taskresult)
-  * [_`public`_ task.error](#_public_-taskerror)
-  * [_`public`_ task.failedCount](#_public_-taskfailedcount)
 
 <!-- tocstop -->
 
@@ -43,12 +30,12 @@
 
 DeFlow class provide static method to connect with your redis backend
 
-#### _`static`_ Deflow.register(options) 
+#### _`static`_ Deflow.register(options)
 
 Register your nodeJS process to the redis backend through DeFlow.
 Run this method as soon as possible in your application.
 
-- `options` <[Object]>
+- `options` <[object]>
 
   - `connection` <[object]> Redis connection options
     - `host` <[string]> Redis hostname
@@ -72,35 +59,32 @@ Disconnect DeFlow from redis and pubSub instance
 ### _`class`_ Workflow
 
 #### _`static`_ Workflow.create(name, options?)
-Create a new workflow instance 
+
+Create a new workflow instance
 
 - `name` <[string]> Custom workflow name
 - `options` <?[object]> Workflow main options
-    - `ifExist` <?[string]> If a workflow with the same name exist, replace it or create another one, accept `replace` or `create` (Defaults to `create`)
-    - `cleanOnDone` <?[boolean]> Remove redis key/list and everything related to workflow when it's done (Defaults to `true`)
-    - TODO:
-   
+  - `ifExist` <?[string]> If a workflow with the same name exist, replace it or create another one, accept `replace` or `create` (Defaults to `create`)
+  - `cleanOnDone` <?[boolean]> Remove redis key/list and everything related to workflow when it's done (Defaults to `true`)
 - returns: <[Workflow]> Workflow instance
 
+#### _`public`_ workflow.addStep(addStepData)
 
-#### _`public`_ workflow.addStep(data)
+Add a step to the workflow instance
 
-Add a step to the workflow instance 
-
-- `data` <?[object]> Workflow main options
-    - `step` <[string]|[StepHandler](#_class_-stephandler)> the exported step to execute, or an absolute path to it. When using a stepHandler instance, deflow automatically resolve the module path to store it as an absolute path in the redis database, allowing other nodes to execute the stepHandler.
-    - `data` <?[any]> Any kind of data needed by the step (user defined)
-    - `options` <?[object]> Step options, this declaration overrides stepHandler options, and so workflow options
-        - `taskTimeout` <?[number]> Timeout in ms after which the task will be considered as failed (task.error will be filled) (Defaults to `0`)
-        - `taskConcurrency` <?[number]> Number of task that **one nodeJS process** can do in parallel (Default to `1`)
-        - `taskMaxFailCount` <?[number]> Define the max number of retry possible for a task (Default to `1`)
-        - `taskFailRetryDelay` <?[number]> Time in ms to delay the task execution when retrying (Default to `null`)
-      
+- params: <[AddStep]> Add step data
+  - `step` <[string]|[StepHandler](#_class_-stephandler)> the exported step to execute, or an absolute path to it. When using a stepHandler instance, deflow automatically resolve the module path to store it as an absolute path in the redis database, allowing other nodes to execute the stepHandler.
+  - `data` <?[any]> Any kind of data needed by the step (user defined)
+  - `options` <?[object]> Step options, this declaration overrides stepHandler options, and so workflow options
+    - `taskTimeout` <?[number]> Timeout in ms after which the task will be considered as failed (task.error will be filled) (Defaults to `0`)
+    - `taskConcurrency` <?[number]> Number of task that **one nodeJS process** can do in parallel (Default to `1`)
+    - `taskMaxFailCount` <?[number]> Define the max number of retry possible for a task (Default to `1`)
+    - `taskFailRetryDelay` <?[number]> Time in ms to delay the task execution when retrying (Default to `null`)
 - returns: <[Workflow]> Workflow instance
 
 #### _`public`_ workflow.run()
 
-Run the workflow, will store redis data and start step processing 
+Run the workflow, will store redis data and start step processing
 
 - returns: <[Workflow]> Workflow instance
 
@@ -108,89 +92,134 @@ Run the workflow, will store redis data and start step processing
 
 Return the complete workflow results,
 
-- returns: <[Promise]<[object]>
+- returns: <[Promise]<[WorkflowResult]>
   - `id` <[string]> Workflow unique id
   - `name` <[string]> Workflow name
   - `options` <[object]> Workflow options
   - `steps` <[array]<[object]>> Executed steps
-    - `options` <[object]> Step options
     - `id` <[string]> Step unique id
     - `name` <[string]> Step name
     - `data` <[any]|[undefined]> Optional data passed to the step
+    - `options` <[object]> Step options
     - `taskCount` <[number]> Number of task attached to the step
     - `workflowId` <[string]> The workflow id
     - `key` <[string]> The redis key identifier of the step
-    - `tasks` <[array]<[object]>> Tasks list and results 
-        - `id` <[string]> Task unique id
-        - `data` <[any]> Task data 
-        - `failedCount` <[number]> Number of error happened
-        - `stepKey` <[string]> The parent step id
-        - `result` <[any]|[undefined]> Task result if success
-        - `error` <?[string]> Error message
+    - `tasks` <[array]<[object]>> Tasks list and results
+      - `id` <[string]> Task unique id
+      - `data` <[any]> Task data
+      - `failedCount` <[number]> Number of error happened
+      - `stepKey` <[string]> The parent step id
+      - `result` <[any]|[undefined]> Task result if success
+      - `error` <?[string]> Error message
 
 #### _`event`_ workflow: 'done'
 
 Emitted when the workflow is done, returning compete workflow results
 
-- returns: [_`public`_ workflow.results()](#_public_-workflowresults)
+- returns: [WorkflowResult](#_public_-workflowresults)
 
 #### _`event`_ workflow: 'nextTask'
 
 Emitted when a task is started by a node
 
-- returns: <[object]>
-    - `id` <[string]> Task unique id
-    - `data` <[any]> Task data 
-    - `failedCount` <[number]> Number of error happened
-    - `stepKey` <[string]> The parent step id
-    - `workflowId` <[string]> The workflow id
+- returns: <[_`class`_ Task](#_class_-task)>
 
 ### _`class`_ StepHandler
 
 #### StepHandler.constructor
 
+Create a step handler:
+
+```typescript
+export default new StepHandler({
+  options: {},
+
+  beforeAll(step) {},
+
+  handler(task, step) {},
+
+  onHandlerError(task, step, error) {},
+
+  afterAll(step) {},
+});
+```
+
+#### StepHandler.constructor.options
+
+Optional handler options, define process option: 
+
+- properties: <[StepOptions]>
+
 ### _`class`_ Step
 
-#### _`public`_ step.id
+Step instance definition:
 
-#### _`public`_ step.name
+- properties:
+  - `id` <[string]> Step unique id
+  - `name` <[string]> Step name
+  - `data` <any|[undefined]> Optional data passed to the step
+  - `options` <[object]> Step options
+      - `taskTimeout` <?[number]> Timeout in ms after which the task will be considered as failed (task.error will be filled) (Defaults to `0`)
+      - `taskConcurrency` <?[number]> Number of task that **one nodeJS process** can do in parallel (Default to `1`)
+      - `taskMaxFailCount` <?[number]> Define the max number of retry possible for a task (Default to `1`)
+      - `taskFailRetryDelay` <?[number]> Time in ms to delay the task execution when retrying (Default to `null`)
+  - `taskCount` <[number]> Number of task attached to the step
+  - `workflowId` <[string]> The workflow id
+  - `key` <[string]> The redis key identifier of the step
 
-#### _`public`_ step.index
+#### _`public`_ step.addTasks(taskData[])
 
-#### _`public`_ step.data
+Add an array of tasks to the current step, usually used in the `beforeAll` method
 
-#### _`public`_ step.taskCount
+- params: <[array]<[any]>> Array of task data to add to the step
 
-#### _`public`_ step.options
+- returns: <[Promise]<[void]>>
 
-#### _`public`_ step.workflowId
+#### _`public`_ step.addAfter(addStepData)
 
-#### _`public`_ step.key
+Add a step after the current one, usually used in the `beforeAll`, `afterAll` method.
+It allow you to add step from a running step, based on results or anything.
 
-#### _`public`_ step.parentKey
-
-#### _`public`_ step.addTasks()
-
-#### _`public`_ step.addAfter()
+- params: <[AddStep]> Add step data
+  - `step` <[string]|[StepHandler](#_class_-stephandler)> the exported step to execute, or an absolute path to it. When using a stepHandler instance, deflow automatically resolve the module path to store it as an absolute path in the redis database, allowing other nodes to execute the stepHandler.
+  - `data` <?[any]> Any kind of data needed by the step (user defined)
+  - `options` <?[object]> Step options, this declaration overrides stepHandler options, and so workflow options
+    - `taskTimeout` <?[number]> Timeout in ms after which the task will be considered as failed (task.error will be filled) (Defaults to `0`)
+    - `taskConcurrency` <?[number]> Number of task that **one nodeJS process** can do in parallel (Default to `1`)
+    - `taskMaxFailCount` <?[number]> Define the max number of retry possible for a task (Default to `1`)
+    - `taskFailRetryDelay` <?[number]> Time in ms to delay the task execution when retrying (Default to `null`)
+    
+- returns: <[Promise]<[Step]>> created step
 
 #### _`public`_ step.getProgress()
 
+- returns: <[Promise]<[object]>>
+  - `done` <[number]> Number of tasks done
+  - `total` <[number]> Number of total task (step.taskCount)
+  - `percent` <[string]> A formatted message of the current progress
+
 #### _`public`_ step.getResults()
+
+Return step tasks with results:
+
+- returns: <[Promise]<[array]<[Task]>>>
 
 ### _`class`_ Task
 
-#### _`public`_ task.data
+Task instance definition:
 
-#### _`public`_ task.result
+- properties:
+  - `id` <[string]> Task unique id
+  - `data` <[any]> Task data
+  - `failedCount` <[number]> Number of error happened
+  - `stepKey` <[string]> The parent step redis key
+  - `result` <?[any]> Task result if success
+  - `error` <?[string]> Error message
 
-#### _`public`_ task.error
-
-#### _`public`_ task.failedCount
-
-
-
-
-
+[task]: #_class_-task 'Task'
+[step]: #_class_-step 'Step'
+[any]: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#any 'Array'
+[void]: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#void 'void'
 [axnode]: #accessibilitysnapshotoptions 'AXNode'
 [accessibility]: #class-accessibility 'Accessibility'
 [array]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array 'Array'
