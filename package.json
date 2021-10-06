@@ -18,7 +18,6 @@
   },
   "scripts": {
     "dev": "nodemon -w src old/index.ts",
-    "publish": "np",
     "build": "rm -rf dist && tsc --project ./",
     "lint": "eslint src",
     "lint:fix": "eslint --fix src",
