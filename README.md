@@ -32,6 +32,8 @@ Tasks are configurable and can have timeout and retry strategy.
 
 ## Getting started
 
+> :warning: Currently at a **test in progress** status, please consider this when using in production
+
 install:
 ```
 npm i deflow
