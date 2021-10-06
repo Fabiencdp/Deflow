@@ -48,13 +48,12 @@ const defaultOptions: WorkFlowOption = {
   cleanOnDone: true,
 };
 
-export default class WorkFlow {
+class WorkFlowEventEmitter extends (EventEmitter as new () => TypeSafeEventEmitter<Events>) {}
+
+export default class WorkFlow extends WorkFlowEventEmitter {
   public id: string;
   public name: string;
-  public list: string;
   public options: WorkFlowOption;
-
-  public events: TypeSafeEventEmitter<Events>;
 
   /**
    * Temp in memory store
@@ -62,45 +61,35 @@ export default class WorkFlow {
   #addedSteps: AddStep[] = [];
 
   /**
+   * redis queue key
+   */
+  #list: string;
+
+  /**
    * Create a workflow from json
    * @param json
    */
   constructor(json: WorkFlowJSON) {
+    super();
+
     this.id = json.id;
     this.name = json.name;
-    this.list = json.queueId;
     this.options = json.options;
 
-    this.events = new EventEmitter();
+    this.#list = json.queueId;
   }
-
-  static create(name: string): WorkFlow;
-  static create(name: string, opts: Partial<WorkFlowOption>): WorkFlow;
-  static create(name: string, steps: AddStep[], opts?: Partial<WorkFlowOption>): WorkFlow;
 
   /**
    * Create and save new workflow
    * @param name
-   * @param steps
    * @param opts
    */
-  static create(
-    name: string,
-    steps?: AddStep[] | Partial<WorkFlowOption>,
-    opts: Partial<WorkFlowOption> = {}
-  ): WorkFlow {
+  static create(name: string, opts: Partial<WorkFlowOption> = {}): WorkFlow {
     const id = slugify([name, generate()].join(':'));
     const queueId = [id, 'steps'].join(':');
 
-    const inputOpts = typeof steps === 'object' && !Array.isArray(steps) ? steps : opts;
-    const options = { ...defaultOptions, ...inputOpts };
-    const workFlow = new WorkFlow({ id, name, queueId, options });
-
-    if (Array.isArray(steps) && steps.length > 0) {
-      workFlow.#addedSteps = steps;
-    }
-
-    return workFlow;
+    const options = { ...defaultOptions, ...opts };
+    return new WorkFlow({ id, name, queueId, options });
   }
 
   /**
@@ -217,13 +206,14 @@ export default class WorkFlow {
           return reject(err);
         }
 
-        const doneSteps = res.map((r) => JSON.parse(r));
-
-        const promises = doneSteps.map(async (s) => {
-          const step = await Step.getByKey(s.key);
-          const tasks = await step.getResults();
-          return { ...step.toJSON(), tasks };
-        });
+        const promises = res
+          .map((jsonStep) => JSON.parse(jsonStep))
+          .filter((jsonStep) => jsonStep.name.search(/:(after|before)All/i) === -1)
+          .map(async (s) => {
+            const step = await Step.getByKey(s.key);
+            const tasks = await step.getResults();
+            return { ...step, tasks };
+          });
 
         Promise.all(promises).then((results) => {
           const steps = results as unknown as (Step & { tasks: Task[] })[]; // TODO: fix type
@@ -251,7 +241,7 @@ export default class WorkFlow {
 
     // Get step with the max score
     return new Promise<string | null>((resolve, reject) => {
-      deFlow.client.zrevrange(this.list, 0, 0, async (err, reply) => {
+      deFlow.client.zrevrange(this.#list, 0, 0, async (err, reply) => {
         if (err) {
           return reject(err);
         }
@@ -315,7 +305,7 @@ export default class WorkFlow {
   #listenPubSubEvents(): void {
     const onNextTask = async (data: NextTaskEventData) => {
       if (data.workflowId === this.id) {
-        this.events.emit('nextTask', data);
+        this.emit('nextTask', data);
       }
     };
 
@@ -325,15 +315,15 @@ export default class WorkFlow {
         PubSubManager.emitter.removeListener('nextTask', onNextTask);
 
         const result = await this.results();
-        this.events.emit('done', result);
+        this.emit('done', result);
         if (this.options.cleanOnDone) {
           setTimeout(() => {
             this.clean();
           }, 1500);
         }
 
-        this.events.removeListener('done', onDone);
-        this.events.removeListener('nextTask', onNextTask);
+        this.removeListener('done', onDone);
+        this.removeListener('nextTask', onNextTask);
       }
     };
 
@@ -381,7 +371,7 @@ export default class WorkFlow {
     return {
       id: this.id,
       name: this.name,
-      queueId: this.list,
+      queueId: this.#list,
       options: this.options,
     };
   }

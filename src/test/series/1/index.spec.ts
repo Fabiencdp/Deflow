@@ -41,7 +41,7 @@ describe('Series 1', () => {
     };
 
     const res = await new Promise((resolve) => {
-      workflow.events.on('done', () => {
+      workflow.on('done', () => {
         client.get(workflow.id, (err, res) => {
           if (!res || err) {
             return resolve(null);
@@ -68,7 +68,7 @@ describe('Series 1', () => {
       .run();
 
     const res: string[] | null = await new Promise((resolve) => {
-      w2.events.on('done', () => {
+      w2.on('done', () => {
         client.keys('test-simple:*', (err, res) => {
           if (!res || err) {
             return resolve(null);
@@ -94,7 +94,7 @@ describe('Series 1', () => {
 
     // Wait the end of first workflow before creating a new one
     await new Promise<void>((resolve) => {
-      w1.events.on('done', (res) => {
+      w1.on('done', (res) => {
         expect(res.id).toBe(w1.id);
         resolve();
       });
@@ -112,7 +112,7 @@ describe('Series 1', () => {
 
     // Wait the end
     await new Promise<void>((resolve) => {
-      w2.events.on('done', (res) => {
+      w2.on('done', (res) => {
         expect(res.id).toBe(w2.id);
         resolve();
       });

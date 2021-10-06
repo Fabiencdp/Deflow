@@ -1,6 +1,6 @@
 {
   "name": "deflow",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Deflow is a decentralized job workflow manager backed on Redis",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,7 +32,8 @@
     "example:simple": "nodemon --inspect -w src examples/simple/index.ts",
     "example:tree": "nodemon --inspect -w src examples/tree/index.ts",
     "example:multi": "nodemon --inspect -w src examples/multi/index.ts",
-    "validate-branch-name": "validate-branch-name"
+    "validate-branch-name": "validate-branch-name",
+    "gen-api-toc": "npx markdown-toc -i ./docs/api.md"
   },
   "nodemonConfig": {
     "restartable": "rs",

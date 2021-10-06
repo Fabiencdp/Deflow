@@ -50,13 +50,13 @@ describe('Series 3', () => {
       .run();
 
     // Simulate the #checkProcessQueue call each
-    workflow.events.on('nextTask', (d) => {
+    workflow.on('nextTask', (d) => {
       nextTaskEventCount += 1;
       jest.advanceTimersByTime(checkProcessQueueInterval);
     });
 
     const results: Task[] = await new Promise((resolve) => {
-      workflow.events.on('done', (data) => {
+      workflow.on('done', (data) => {
         resolve(data.steps[0].tasks);
       });
     });
@@ -91,7 +91,7 @@ describe('Series 3', () => {
       .run();
 
     const results: Task[] = await new Promise((resolve) => {
-      workflow.events.on('done', (data) => {
+      workflow.on('done', (data) => {
         resolve(data.steps[0].tasks);
       });
     });
