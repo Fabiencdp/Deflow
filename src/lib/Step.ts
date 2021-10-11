@@ -9,7 +9,7 @@ import PubSubManager, { Action } from './PubSubManager';
 
 import DeFlow from './index';
 
-const debug = Debug('deflow:step');
+const debug = Debug('deflow:Step');
 
 type AddStepWithoutData<T extends StepHandler> = {
   step: T;
@@ -94,7 +94,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   #moduleFn?: StepHandlerFn;
   #parentKey?: string;
 
-  #added: Step[] = [];
+  #added: { name: string; index: number }[] = [];
 
   #deflow = DeFlow.getInstance();
 
@@ -242,32 +242,29 @@ export default class Step<SD = any, TD = any, TR = any> {
     const { options, tasks, step } = params;
     let data = undefined;
     if (params && 'data' in params) {
-      data = (params as any).data; // Fix complex type error
+      data = params.data;
     }
 
     let index = new Date().getTime();
 
     // Re-define steps score when adding one by one
     if (this.#added.length > 0) {
-      index = this.#added[this.#added.length - 1].#index - 1;
+      index = this.#added[this.#added.length - 1].index - 1;
     }
 
-    const name = [step.filename, index].join('-');
+    const name = slugify([step.filename, index, this.#added.length].join('-'));
+    this.#added.push({ name, index });
 
-    const next = await Step.create({
+    return Step.create({
       index,
       options,
       data,
       tasks,
-      name: slugify(name),
+      name,
       module: step,
       workflowId: this.workflowId,
       parentKey: this.key,
     });
-
-    this.#added.push(next);
-
-    return next;
   }
 
   /**
@@ -436,7 +433,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       await this.#taskFailRetryDelay();
     }
 
-    await this.#deflow.client.zremrangebyscore('process-queue', score, score);
+    await this.#deflow.client.zremrangebyscore(DeFlow.processQueue, score, score);
 
     // Run after each method
     if (this.#moduleFn === 'module') {
@@ -491,7 +488,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       return Promise.reject('Invalid module');
     }
 
-    let method: Promise<any>;
+    let method: any | Promise<any>;
     const promises: Promise<Error | any>[] = [];
 
     // Set a timeout

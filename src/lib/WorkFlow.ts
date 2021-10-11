@@ -9,11 +9,11 @@ import { TypeSafeEventEmitter } from '../types';
 import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 import StepHandler from './StepHandler';
-import Task from './Task';
+import Task, { JSONTask } from './Task';
 
 import DeFlow from './index';
 
-const debug = Debug('deflow:workflow');
+const debug = Debug('deflow:WorkFlow');
 
 export type WorkFlowJSON = {
   id: string;
@@ -228,7 +228,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
    */
   public async clean(): Promise<void> {
     debug('clean');
-    return this.#cleanByKey(this.id);
+    return this.#cleanWorkFlowById(this.id);
   }
 
   /**
@@ -267,7 +267,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
     const deFlow = DeFlow.getInstance();
 
     if (this.options.ifExist === 'replace') {
-      await this.#cleanByKey(this.name);
+      await this.#cleanWorkFlowById(this.name);
     }
 
     const data = JSON.stringify(this);
@@ -334,6 +334,15 @@ export default class WorkFlow extends WorkFlowEventEmitter {
   /**
    * Remove from redis
    */
+  async #cleanWorkFlowById(id: string): Promise<void> {
+    debug('cleanWorkFlowById', id);
+    const promises = [this.#cleanByKey(id), this.#cleanProcessQueueByKey(id)];
+    await Promise.all(promises);
+  }
+
+  /**
+   * Remove from redis
+   */
   async #cleanByKey(key: string): Promise<void> {
     debug('cleanByKey', key);
 
@@ -342,7 +351,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
 
     await deFlow.client.del(key);
 
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       deFlow.client.keys(pattern, (err, keys) => {
         if (err) {
           return reject(err);
@@ -360,6 +369,45 @@ export default class WorkFlow extends WorkFlowEventEmitter {
           }
           return resolve();
         });
+      });
+    });
+  }
+
+  /**
+   * cleanProcessQueueByKey
+   * @param key
+   */
+  async #cleanProcessQueueByKey(key: string): Promise<void> {
+    debug('cleanProcessQueueByKey', key);
+
+    const deFlow = DeFlow.getInstance();
+    const pattern = [key, ':'].join('');
+
+    return new Promise<void>((resolve, reject) => {
+      deFlow.client.zrange(DeFlow.processQueue, 0, -1, 'WITHSCORES', (err, res) => {
+        if (err) {
+          return reject(err);
+        }
+
+        const toRm: { score: string; data: JSONTask }[] = res
+          .reduce((acc, r, i) => {
+            if (i % 2 === 0) {
+              acc.push({ data: JSON.parse(r), score: res[i + 1] });
+            }
+            return acc;
+          }, [])
+          .filter((g) => g.data.stepKey.indexOf(pattern) === 0);
+
+        toRm
+          .reduce(async (prev: Promise<boolean>, next) => {
+            await prev;
+            return deFlow.client.zremrangebyscore(DeFlow.processQueue, next.score, next.score);
+          }, Promise.resolve(true))
+          .then(() => resolve())
+          .catch((e) => {
+            console.log(e);
+            return resolve();
+          });
       });
     });
   }

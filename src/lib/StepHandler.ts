@@ -3,16 +3,20 @@ import Debug from 'debug';
 import Step, { StepOptions } from './Step';
 import Task from './Task';
 
-const debug = Debug('StepHandler');
+const debug = Debug('deflow:StepHandler');
 
 export type StepHandlerFn = 'module' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
 
 export type StepHandlerDefinition<SD, TD, TR> = {
-  beforeAll?: (step: Step<SD, TD, TR>) => any | Promise<any>;
-  handler?: (task: Task<TD, TR>, step: Step<SD, TD, TR>) => any | Promise<any>;
-  afterEach?: (task: Task<TD, TR>, step: Step<SD, TD, TR>) => any | Promise<any>;
-  afterAll?: (step: Step<SD, TD, TR>) => any | Promise<any>;
-  onHandlerError?: (task: Task<TD, TR>, step: Step<SD, TD, TR>, error: Error) => any | Promise<any>;
+  beforeAll?: (step: Step<SD, TD, TR>) => void | Promise<void>;
+  handler?: (task: Task<TD, TR>, step: Step<SD, TD, TR>) => TR | Promise<TR>;
+  afterEach?: (task: Task<TD, TR | undefined>, step: Step<SD, TD, TR>) => void | Promise<void>;
+  afterAll?: (step: Step<SD, TD, TR>) => void | Promise<void>;
+  onHandlerError?: (
+    task: Task<TD, TR>,
+    step: Step<SD, TD, TR>,
+    error: Error
+  ) => void | Promise<void>;
   options?: Partial<StepOptions>;
   data?: SD;
   tasks?: TD[];

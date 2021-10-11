@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import redis, { RedisClient } from 'redis';
 
-const debug = Debug('deflow:client');
+const debug = Debug('deflow:Client');
 
 export type ConnectionOptions = {
   host: string;
