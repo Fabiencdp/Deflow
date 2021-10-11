@@ -9,7 +9,7 @@ import PubSubManager, { Action } from './PubSubManager';
 
 import DeFlow from './index';
 
-const debug = Debug('deflow:step');
+const debug = Debug('deflow:Step');
 
 type AddStepWithoutData<T extends StepHandler> = {
   step: T;

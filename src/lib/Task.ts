@@ -3,7 +3,7 @@ import { generate } from 'short-uuid';
 
 import DeFlow from './index';
 
-const debug = Debug('Task');
+const debug = Debug('deflow:Task');
 
 export type CreateTask<D = any> = {
   data: D;
