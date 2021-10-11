@@ -25,6 +25,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+  await client.flushall();
   await client.end(true);
 });
 

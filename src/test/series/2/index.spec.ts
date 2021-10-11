@@ -25,6 +25,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await DeFlow.unregister();
+  await client.flushall();
   await client.end(true);
 });
 

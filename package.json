@@ -19,6 +19,7 @@
   "scripts": {
     "dev": "nodemon -w src old/index.ts",
     "build": "rm -rf dist && tsc --project ./",
+    "prepare": "npm run build",
     "lint": "eslint src",
     "lint:fix": "eslint --fix src",
     "prettier:check": "npx prettier --check src",
