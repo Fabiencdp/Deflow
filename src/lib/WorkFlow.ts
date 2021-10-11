@@ -389,8 +389,8 @@ export default class WorkFlow extends WorkFlowEventEmitter {
           return reject(err);
         }
 
-        const toRm: { score: string; data: JSONTask }[] = res
-          .reduce((acc, r, i) => {
+        const toRm = res
+          .reduce((acc: { score: string; data: JSONTask }[], r, i) => {
             if (i % 2 === 0) {
               acc.push({ data: JSON.parse(r), score: res[i + 1] });
             }
