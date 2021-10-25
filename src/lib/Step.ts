@@ -240,16 +240,8 @@ export default class Step<SD = any, TD = any, TR = any> {
    */
   public async addAfter<T extends StepHandler>(params: AddStep<T>): Promise<Step> {
     const { options, tasks, step: addStep } = params;
-    let step: StepHandler;
 
-    // Fix js import by checking constructor name
-    if (typeof addStep === 'string') {
-      step = (await Step.getModule(addStep)).module;
-    } else if (addStep instanceof Promise) {
-      step = await addStep;
-    } else {
-      step = addStep;
-    }
+    const step = await Step.getModule(addStep);
 
     let data = undefined;
     if (params && 'data' in params) {
@@ -272,7 +264,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       data,
       tasks,
       name,
-      module: step,
+      module: step.module,
       workflowId: this.workflowId,
       parentKey: this.key,
     });
@@ -461,7 +453,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @private
    */
   static async getModule(
-    path: string | StepHandler
+    path: string | StepHandler | Promise<any>
   ): Promise<{ path: string; module: StepHandler; filename: string }> {
     try {
       let module: StepHandler | undefined;
