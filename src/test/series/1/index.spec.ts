@@ -5,8 +5,6 @@ import redis from 'redis';
 import DeFlow, { WorkFlow } from '../../../index';
 import { ConnectionOptions } from '../../../lib/Client';
 
-import step1 from './steps/step1';
-
 const connection: ConnectionOptions = { host: 'localhost' };
 const client = redis.createClient(connection);
 
@@ -29,7 +27,7 @@ describe('Series 1', () => {
   it('should create a new workflow', async () => {
     const workflow = await WorkFlow.create('test-simple')
       .addStep({
-        step: step1,
+        step: import('./steps/step1'),
         tasks: [1, 2, 3, 4, 5, 6],
       })
       .run();
@@ -58,13 +56,13 @@ describe('Series 1', () => {
   it('should create two workflow', async () => {
     const w1 = WorkFlow.create('test-simple', { ifExist: 'create', cleanOnDone: false })
       .addStep({
-        step: step1,
+        step: import('./steps/step1'),
       })
       .run();
 
     const w2 = WorkFlow.create('test-simple', { ifExist: 'create', cleanOnDone: false })
       .addStep({
-        step: step1,
+        step: import('./steps/step1'),
       })
       .run();
 
@@ -88,7 +86,7 @@ describe('Series 1', () => {
       cleanOnDone: false,
     })
       .addStep({
-        step: step1,
+        step: import('./steps/step1'),
         tasks: [1],
       })
       .run();
@@ -106,7 +104,7 @@ describe('Series 1', () => {
       cleanOnDone: false,
     })
       .addStep({
-        step: step1,
+        step: import('./steps/step1'),
         tasks: [2],
       })
       .run();
