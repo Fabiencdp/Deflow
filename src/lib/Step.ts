@@ -12,7 +12,7 @@ import DeFlow from './index';
 const debug = Debug('deflow:Step');
 
 type AddStepWithoutData<T extends StepHandler> = {
-  step: T;
+  step: T | string | Promise<any>;
   tasks?: T['tasks'];
   options?: Partial<StepOptions>;
 };
@@ -239,7 +239,10 @@ export default class Step<SD = any, TD = any, TR = any> {
    * Add a step after the current one
    */
   public async addAfter<T extends StepHandler>(params: AddStep<T>): Promise<Step> {
-    const { options, tasks, step } = params;
+    const { options, tasks, step: addStep } = params;
+
+    const step = await Step.getModule(addStep);
+
     let data = undefined;
     if (params && 'data' in params) {
       data = params.data;
@@ -261,7 +264,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       data,
       tasks,
       name,
-      module: step,
+      module: step.module,
       workflowId: this.workflowId,
       parentKey: this.key,
     });
@@ -450,22 +453,29 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @private
    */
   static async getModule(
-    path: string | StepHandler
+    path: string | StepHandler | Promise<any>
   ): Promise<{ path: string; module: StepHandler; filename: string }> {
     try {
-      // Fix js import by checking constructor name
-      if (path instanceof StepHandler || path.constructor.name === 'StepHandler') {
-        path = (path as StepHandler).path;
+      let module: StepHandler | undefined;
+
+      // Resolve ES6 dynamic import
+      if (path instanceof Promise) {
+        module = (await path).default;
+      } else if (typeof path === 'string') {
+        module = await import(path).then((m) => m.default);
+      } else {
+        module = path;
       }
-      const filename = path.split('/').pop() || '';
-      const module: StepHandler = await import(path).then((m) => m.default);
+
       if (!module || (!module.handler && !module.beforeAll)) {
         throw new Error(
           `Module does not exist at path: ${path}, did you forgot to export the step as default?`
         );
       }
 
-      return { path, module, filename };
+      const filename = module.path.split('/').pop() || '';
+
+      return { path: module.path, module, filename };
     } catch (e: any) {
       console.error(e.message);
       throw e;
