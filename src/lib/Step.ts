@@ -12,7 +12,7 @@ import DeFlow from './index';
 const debug = Debug('deflow:Step');
 
 type AddStepWithoutData<T extends StepHandler> = {
-  step: T | string | Promise<any>;
+  step: T | string | Promise<{ default: T }>;
   tasks?: T['tasks'];
   options?: Partial<StepOptions>;
 };
