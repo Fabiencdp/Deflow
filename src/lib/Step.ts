@@ -556,10 +556,10 @@ export default class Step<SD = any, TD = any, TR = any> {
    * @param task
    * @param error
    */
-  async #runOnHandlerError(task: Task, error: Error): Promise<any> {
+  async #runOnHandlerError(task: Task, error: Error): Promise<void> {
     const { module } = await Step.getModule(this.#module);
     if (typeof module.onHandlerError === 'function') {
-      module.onHandlerError(task, this, error);
+      return module.onHandlerError(task, this, error);
     }
   }
 
