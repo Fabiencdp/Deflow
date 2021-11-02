@@ -42,7 +42,7 @@ describe('Series 4', () => {
 
     const workflow = await WorkFlow.create('multi')
       .addStep({
-        step: step1 as StepHandler,
+        step: import('./steps/step1.js') as any,
         tasks: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
       })
       .run();

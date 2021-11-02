@@ -8,12 +8,14 @@ export enum Action {
   NextStep,
   NextTask,
   Done,
+  Throw,
 }
+
 type Signal = {
   publisherId: string;
 };
 
-type SignalNextStep = Signal & {
+export type SignalNextStep = Signal & {
   action: Action.NextStep;
   data: {
     stepKey: string;
@@ -21,7 +23,7 @@ type SignalNextStep = Signal & {
   };
 };
 
-type SignalNextTask = Signal & {
+export type SignalNextTask = Signal & {
   action: Action.NextTask;
   data: {
     id: string;
@@ -31,14 +33,22 @@ type SignalNextTask = Signal & {
   };
 };
 
-type SignalDone = Signal & {
+export type SignalDone = Signal & {
   action: Action.Done;
   data: {
     workflowId: string;
   };
 };
 
-type Signals = SignalNextStep | SignalNextTask | SignalDone;
+export type SignalThrow = Signal & {
+  action: Action.Throw;
+  data: {
+    workflowId: string;
+    error: string;
+  };
+};
+
+type Signals = SignalNextStep | SignalNextTask | SignalDone | SignalThrow;
 
 export default class PubSubManager {
   private static channel = 'dfw';
@@ -91,6 +101,9 @@ export default class PubSubManager {
       case Action.NextTask:
         PubSubManager.nextTask(signal);
         break;
+      case Action.Throw:
+        PubSubManager.throw(signal);
+        break;
     }
   }
 
@@ -105,6 +118,9 @@ export default class PubSubManager {
       case Action.NextTask:
         PubSubManager.nextTask(signal);
         break;
+      case Action.Throw:
+        PubSubManager.throw(signal);
+        break;
     }
   }
 
@@ -112,7 +128,7 @@ export default class PubSubManager {
    * Publish an event
    * @param signal
    */
-  static async publish(signal: Omit<Signals, 'publisherId'>): Promise<void> {
+  static async publish<S extends Signals>(signal: Omit<S, 'publisherId'>): Promise<void> {
     const deFlow = DeFlow.getInstance();
     const publisherId = deFlow.id;
     const data = { ...signal, action: signal.action, publisherId };
@@ -133,7 +149,7 @@ export default class PubSubManager {
    * @param signal
    */
   static async nextTask(signal: SignalNextTask): Promise<void> {
-    this.emitter.emit('nextTask', signal.data);
+    PubSubManager.emitter.emit('nextTask', signal.data);
   }
 
   /**
@@ -141,6 +157,14 @@ export default class PubSubManager {
    * @param signal
    */
   static async done(signal: SignalDone): Promise<void> {
-    PubSubManager.emitter.emit('done', signal.data.workflowId);
+    PubSubManager.emitter.emit('done', signal.data);
+  }
+
+  /**
+   * On throw
+   * @param signal
+   */
+  static async throw(signal: SignalThrow): Promise<void> {
+    PubSubManager.emitter.emit('throw', signal.data);
   }
 }

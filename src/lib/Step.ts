@@ -395,6 +395,17 @@ export default class Step<SD = any, TD = any, TR = any> {
   }
 
   /**
+   * Retrieve current workflow
+   */
+  public async getWorkflow(): Promise<WorkFlow> {
+    const workflow = await WorkFlow.getById(this.workflowId);
+    if (!workflow) {
+      throw new Error('Workflow is not defined');
+    }
+    return workflow;
+  }
+
+  /**
    * Run next task recursively
    */
   async #getNextTaskAndRun(): Promise<void> {
