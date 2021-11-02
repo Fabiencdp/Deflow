@@ -149,7 +149,7 @@ export default class PubSubManager {
    * @param signal
    */
   static async nextTask(signal: SignalNextTask): Promise<void> {
-    this.emitter.emit('nextTask', signal.data);
+    PubSubManager.emitter.emit('nextTask', signal.data);
   }
 
   /**
@@ -157,7 +157,7 @@ export default class PubSubManager {
    * @param signal
    */
   static async done(signal: SignalDone): Promise<void> {
-    PubSubManager.emitter.emit('done', signal.data.workflowId);
+    PubSubManager.emitter.emit('done', signal.data);
   }
 
   /**
