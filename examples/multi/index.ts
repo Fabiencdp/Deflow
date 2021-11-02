@@ -15,9 +15,13 @@ function createWorkflow(): void {
     data: { toCreate: 5 },
   });
 
-  w.run();
+  w.on('error', (e) => {
+    console.log('error', e);
+  });
 
   w.on('done', () => {
     console.log('Tree workflow is done');
   });
+
+  w.run();
 }

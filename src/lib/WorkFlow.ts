@@ -7,7 +7,7 @@ import Debug from 'debug';
 import { TypeSafeEventEmitter } from '../types';
 
 import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
-import PubSubManager, { Action } from './PubSubManager';
+import PubSubManager, { Action, SignalDone, SignalNextTask, SignalThrow } from './PubSubManager';
 import StepHandler from './StepHandler';
 import Task, { JSONTask } from './Task';
 
@@ -31,16 +31,15 @@ export type WorkFlowResult = WorkFlow & {
   steps: (Step & { tasks: Task[] })[];
 };
 
-type NextTaskEventData = {
-  id: string;
-  workflowId: string;
-  stepKey: string;
-  data: any;
-};
-
 type Events = {
   done: WorkFlowResult;
-  nextTask: NextTaskEventData;
+  error: Error;
+  nextTask: {
+    id: string;
+    workflowId: string;
+    stepKey: string;
+    data: any;
+  };
 };
 
 const defaultOptions: WorkFlowOption = {
@@ -224,6 +223,22 @@ export default class WorkFlow extends WorkFlowEventEmitter {
   }
 
   /**
+   * Stop the current workflow
+   * @param e
+   */
+  public async throwError(e?: Error): Promise<void> {
+    let error = e;
+    if (!error) {
+      error = new Error('WorkFlow unknown error');
+    }
+    PubSubManager.publish<SignalThrow>({
+      action: Action.Throw,
+      data: { workflowId: this.id, error: error.message },
+    });
+    await this.clean();
+  }
+
+  /**
    * Remove from redis
    */
   public async clean(): Promise<void> {
@@ -303,16 +318,17 @@ export default class WorkFlow extends WorkFlowEventEmitter {
    * TODO: better event management
    */
   #listenPubSubEvents(): void {
-    const onNextTask = async (data: NextTaskEventData) => {
+    const onNextTask = async (data: SignalNextTask['data']) => {
       if (data.workflowId === this.id) {
         this.emit('nextTask', data);
       }
     };
 
-    const onDone = async (workflowId: string) => {
-      if (workflowId === this.id) {
+    const onDone = async (data: SignalDone['data']) => {
+      if (data.workflowId === this.id) {
         PubSubManager.emitter.removeListener('done', onDone);
         PubSubManager.emitter.removeListener('nextTask', onNextTask);
+        PubSubManager.emitter.removeListener('throw', onThrow);
 
         const result = await this.results();
         this.emit('done', result);
@@ -324,11 +340,20 @@ export default class WorkFlow extends WorkFlowEventEmitter {
 
         this.removeListener('done', onDone);
         this.removeListener('nextTask', onNextTask);
+        this.removeListener('error', onThrow);
+      }
+    };
+
+    const onThrow = async (data: SignalThrow['data']) => {
+      if (data.workflowId === this.id) {
+        const error = new Error(data.error);
+        this.emit('error', error);
       }
     };
 
     PubSubManager.emitter.on('done', onDone);
     PubSubManager.emitter.on('nextTask', onNextTask);
+    PubSubManager.emitter.on('throw', onThrow);
   }
 
   /**

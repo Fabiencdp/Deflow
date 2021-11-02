@@ -45,13 +45,13 @@ describe('Series 5', () => {
     let workflow = await WorkFlow.getById(workflowId);
     expect(workflow).not.toBe(undefined);
 
-    const doneWorkflowId = await new Promise<void>((resolve) => {
+    const doneWorkflowData = await new Promise<any>((resolve) => {
       PubSubManager.emitter.on('done', (data) => {
         resolve(data);
       });
     });
 
-    expect(doneWorkflowId).toBe(workflow?.id);
+    expect(doneWorkflowData?.workflowId).toBe(workflow?.id);
 
     workflow = await WorkFlow.getById(workflowId);
     const result = await workflow?.results();
