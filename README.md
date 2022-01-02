@@ -99,9 +99,6 @@ declare a workflow:
 
 import DeFlow, { WorkFlow } from 'deflow';
 
-import stringToNumber from './steps/string-to-number';
-import antherProcessStep from './steps/anther-process-step';
-
 // Register deflow to your redis backend
 DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
 
@@ -111,16 +108,19 @@ DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
 function runWorkflow() {
   WorkFlow
     .create('some-custom-name')
-    .addStep({ step: stringToNumber }) // Register the step
-    .addStep({ step: antherProcessStep }) // Register the step
+    .addStep({ step: import('./steps/string-to-number') }) // Register the step
+    .addStep({ step: import('./steps/anther-process-step') }) // Register the step
     .run(); // Run the workflow
 }
 
-// Run the workflow from somewhere in your code (make sure redis is connected before running it)
+// Run the workflow from somewhere in your code (make sure redis is ready before)
 setTimeout(() => {
     runWorkflow();
 }, 2000)
 ```
+
+The `step` attribute of `addStep` method can take a module, dynamic import, or a path to the module.
+Prefer the module or dynamic import to take advantage of TS type checking.
 
 ###### [Check the complete API Documentation](https://github.com/Fabiencdp/Deflow/tree/main/docs/api.md)
 

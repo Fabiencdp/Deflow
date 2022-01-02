@@ -68,7 +68,7 @@
     "slugify": "^1.6.0"
   },
   "validate-branch-name": {
-    "pattern": "^(feature|fix|hotfix|release)/.+$",
+    "pattern": "^(feature|fix|hotfix|release|doc)/.+$",
     "errorMsg": "Your name branch is incorrect, she must begin by feature/, fix/, hotfix/ or release/"
   },
   "devDependencies": {
