@@ -1,12 +1,12 @@
 import '../test/helpers/redis-mock';
 import redis from 'redis';
 
-import { StepHandler, WorkFlow } from '../index';
+import { Step, WorkFlow } from '../index';
 
 import PubSubManager from './PubSubManager';
 import { ConnectionOptions } from './Client';
 import Task from './Task';
-import Step from './Step';
+import StepHandler from './StepHandler';
 
 import DeFlow from './index';
 
@@ -155,16 +155,16 @@ describe('#checkProcessQueue', () => {
       .mockImplementation(() => Promise.resolve({ id: '', name: 'test-wf' } as WorkFlow));
 
     jest
-      .spyOn(Step, 'getModule')
+      .spyOn(StepHandler, 'getModule')
       .mockImplementation(() =>
-        Promise.resolve({ path: '', module: 'test-wf' as unknown as StepHandler, filename: '' })
+        Promise.resolve({ path: '', module: 'test-wf' as unknown as Step, filename: '' })
       );
 
-    const step = await Step.create({
+    const step = await StepHandler.create({
       index: 0,
       name: 'test',
       workflowId: '',
-      module: '' as unknown as StepHandler,
+      module: '' as unknown as Step,
     });
     const task = new Task({ failedCount: 0, stepKey: step.key, data: 1, id: '' });
     await createTaskAndLock(task, score, 0);

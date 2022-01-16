@@ -1,6 +1,6 @@
-import StepHandler from '../../../src/lib/StepHandler';
+import Step from '../../../src/lib/Step';
 
-export default new StepHandler<{ toCreate: number }, number, void>({
+export default new Step<{ toCreate: number }, number, void>({
   async beforeAll(step) {
     const arr = Array.from(Array(step.data.toCreate).keys());
 

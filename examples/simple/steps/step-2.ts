@@ -1,4 +1,4 @@
-import StepHandler from '../../../src/lib/StepHandler';
+import Step from '../../../src/lib/Step';
 
 /**
  * This step will show timeout error can be handled
@@ -8,7 +8,7 @@ import StepHandler from '../../../src/lib/StepHandler';
  *    TaskResult: task result type
  * >
  */
-export default new StepHandler<{ someData: string }, number, number>({
+export default new Step<{ someData: string }, number, number>({
   /**
    * Get previous results
    */

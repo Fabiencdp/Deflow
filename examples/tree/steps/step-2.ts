@@ -1,6 +1,6 @@
-import { StepHandler } from '../../../src';
+import { Step } from '../../../src';
 
-export default new StepHandler<void, number, void>({
+export default new Step<void, number, void>({
   async beforeAll(step) {
     console.log('Step2: BeforeAll');
     await step.addTasks([2]);

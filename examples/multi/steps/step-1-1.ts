@@ -1,6 +1,6 @@
-import StepHandler from '../../../src/lib/StepHandler';
+import Step from '../../../src/lib/Step';
 
-export default new StepHandler<number, string, void>({
+export default new Step<number, string, void>({
   /**
    * A some tasks
    * @param step

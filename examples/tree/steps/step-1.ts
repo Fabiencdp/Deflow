@@ -1,4 +1,4 @@
-import StepHandler from '../../../src/lib/StepHandler';
+import Step from '../../../src/lib/Step';
 
 import step1_1 from './step-1-1';
 import step1_2 from './step-1-2';
@@ -6,7 +6,7 @@ import step1_2 from './step-1-2';
 /**
  *
  */
-export default new StepHandler<{ toCreate: number }, number, void>({
+export default new Step<{ toCreate: number }, number, void>({
   options: {
     taskTimeout: 4000,
     taskMaxFailCount: 3,

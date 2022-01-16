@@ -5,7 +5,7 @@ import { generate } from 'short-uuid';
 import Client, { ConnectionOptions } from './Client';
 import PubSubManager from './PubSubManager';
 import WorkFlow from './WorkFlow';
-import Step from './Step';
+import StepHandler from './StepHandler';
 import Task, { JSONTask } from './Task';
 
 const debug = Debug('deflow');
@@ -140,7 +140,7 @@ export default class DeFlow {
    */
   async #restoreTask(jsonTask: JSONTask): Promise<void> {
     const task = new Task(jsonTask);
-    Step.getByKey(task.stepKey).then((step) => {
+    StepHandler.getByKey(task.stepKey).then((step) => {
       debug('Restore Task of', step.name);
       const err = new Error('Unexpected Timeout');
       step.failTask(task, err).then(() => {

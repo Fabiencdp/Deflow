@@ -1,6 +1,6 @@
-import StepHandler from '../../../src/lib/StepHandler';
+import Step from '../../../src/lib/Step';
 
-export default new StepHandler<undefined, number, void>({
+export default new Step<undefined, number, void>({
   options: {
     taskTimeout: 2500,
     taskMaxFailCount: 2,

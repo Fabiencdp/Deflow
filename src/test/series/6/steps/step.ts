@@ -1,6 +1,6 @@
-import { StepHandler } from '../../../../index';
+import { Step } from '../../../../index';
 
-export default new StepHandler({
+export default new Step({
   async handler(task, step) {
     if (task.data.value < 100) {
       await import('./step').then(async (m) => {

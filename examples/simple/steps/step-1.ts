@@ -1,11 +1,11 @@
-import StepHandler from '../../../src/lib/StepHandler';
+import Step from '../../../src/lib/Step';
 
 /**
  * Declare the step handler and types
  * In this one, we convert string to float
  * NOTE: IT MUST BE EXPORTED AS DEFAULT
  */
-export default new StepHandler({
+export default new Step({
   /**
    * Init method allow you to prepare tasks based on anything
    * @param step

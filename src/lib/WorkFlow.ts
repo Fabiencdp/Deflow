@@ -6,9 +6,9 @@ import Debug from 'debug';
 
 import { TypeSafeEventEmitter } from '../types';
 
-import Step, { AddStep, JSONStepListItem, StepOptions } from './Step';
+import StepHandler, { AddStep, JSONStepListItem, StepOptions } from './StepHandler';
 import PubSubManager, { Action, SignalDone, SignalNextTask, SignalThrow } from './PubSubManager';
-import StepHandler from './StepHandler';
+import Step from './Step';
 import Task, { JSONTask } from './Task';
 
 import DeFlow from './index';
@@ -28,7 +28,7 @@ type WorkFlowOption = Partial<StepOptions> & {
 };
 
 export type WorkFlowResult = WorkFlow & {
-  steps: (Step & { tasks: Task[] })[];
+  steps: (StepHandler & { tasks: Task[] })[];
 };
 
 type Events = {
@@ -98,7 +98,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
   public static async runStep(key: string): Promise<void> {
     debug(`runStep ${key}`);
 
-    const step = await Step.getByKey(key);
+    const step = await StepHandler.getByKey(key);
     if (!step) {
       throw new Error('Does not exist');
     }
@@ -181,7 +181,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
    * Add a step to the current workflow
    * @param params
    */
-  public addStep<T extends StepHandler>(params: AddStep<T>): WorkFlow {
+  public addStep<T extends Step>(params: AddStep<T>): WorkFlow {
     const { step, options, tasks } = params;
 
     let data = undefined;
@@ -209,13 +209,13 @@ export default class WorkFlow extends WorkFlowEventEmitter {
           .map((jsonStep) => JSON.parse(jsonStep))
           .filter((jsonStep) => jsonStep.name.search(/:(after|before)All/i) === -1)
           .map(async (s) => {
-            const step = await Step.getByKey(s.key);
+            const step = await StepHandler.getByKey(s.key);
             const tasks = await step.getResults();
             return { ...step, tasks };
           });
 
         Promise.all(promises).then((results) => {
-          const steps = results as unknown as (Step & { tasks: Task[] })[]; // TODO: fix type
+          const steps = results as unknown as (StepHandler & { tasks: Task[] })[]; // TODO: fix type
           return resolve({ ...this, steps });
         });
       });
@@ -300,10 +300,10 @@ export default class WorkFlow extends WorkFlowEventEmitter {
    * Store added step sequentially, reverse order to keep good process order
    */
   async #storeSteps(): Promise<void> {
-    await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data) => {
+    await this.#addedSteps.reverse().reduce(async (prev: Promise<void | StepHandler>, data) => {
       await prev;
 
-      return Step.create({
+      return StepHandler.create({
         ...data,
         module: data.step,
         options: data.options,

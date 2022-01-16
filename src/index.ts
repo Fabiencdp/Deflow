@@ -1,9 +1,9 @@
 import DeFlow from './lib';
-import Step from './lib/Step';
+import StepHandler from './lib/StepHandler';
 import Task from './lib/Task';
 import WorkFlow from './lib/WorkFlow';
-import StepHandler from './lib/StepHandler';
+import Step from './lib/Step';
 
 export default DeFlow;
 
-export { WorkFlow, Step, Task, StepHandler };
+export { WorkFlow, StepHandler, Task, Step };

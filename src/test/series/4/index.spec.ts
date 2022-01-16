@@ -4,7 +4,7 @@ import redis from 'redis';
 
 import { ConnectionOptions } from '../../../lib/Client';
 import DeFlow from '../../../lib';
-import { StepHandler, Task, WorkFlow } from '../../../index';
+import { Step, Task, WorkFlow } from '../../../index';
 import { WorkFlowResult } from '../../../lib/WorkFlow';
 import { killNodes, createNodes } from '../../helpers/listener';
 
@@ -72,11 +72,11 @@ describe('Series 4', () => {
 
     const workflow = await WorkFlow.create('multi', { cleanOnDone: true })
       .addStep({
-        step: step1 as StepHandler,
+        step: step1 as Step,
         tasks: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
       })
       .addStep({
-        step: step1 as StepHandler,
+        step: step1 as Step,
         tasks: [110, 120, 130, 140, 150, 160, 170, 180, 190, 200],
       })
       .run();
@@ -123,11 +123,11 @@ describe('Series 4', () => {
 
     const workflow = WorkFlow.create('events', { cleanOnDone: true })
       .addStep({
-        step: step1 as StepHandler,
+        step: step1 as Step,
         tasks: tasksData,
       })
       .addStep({
-        step: step1 as StepHandler,
+        step: step1 as Step,
         tasks: tasksData,
       })
       .run();
@@ -156,15 +156,15 @@ describe('Series 4', () => {
     const done: string[] = [];
 
     const w1 = WorkFlow.create('event-1', { cleanOnDone: true })
-      .addStep({ step: step1 as StepHandler, tasks: tasksData })
+      .addStep({ step: step1 as Step, tasks: tasksData })
       .run();
 
     const w2 = WorkFlow.create('event-2', { cleanOnDone: true })
-      .addStep({ step: step1 as StepHandler, tasks: tasksData })
+      .addStep({ step: step1 as Step, tasks: tasksData })
       .run();
 
     const w3 = WorkFlow.create('event-3', { cleanOnDone: true })
-      .addStep({ step: step1 as StepHandler, tasks: tasksData })
+      .addStep({ step: step1 as Step, tasks: tasksData })
       .run();
 
     w1.on('nextTask', () => {
