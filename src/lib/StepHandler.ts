@@ -4,7 +4,7 @@ import slugify from 'slugify';
 
 import Task, { JSONTask } from './Task';
 import WorkFlow from './WorkFlow';
-import Step, { StepHandlerFn } from './Step';
+import Step, { HandlerFn } from './Step';
 import PubSubManager, { Action } from './PubSubManager';
 
 import DeFlow from './index';
@@ -32,7 +32,7 @@ export type CreateStep<SD = any, TD = any> = {
   options?: Partial<StepOptions>;
   module: Step;
   workflowId: string;
-  moduleFn?: StepHandlerFn;
+  moduleFn?: HandlerFn;
   parentKey?: string;
   index: number;
 };
@@ -49,7 +49,7 @@ export type JSONStep<SD = any> = {
   name: string;
 
   module: string;
-  moduleFn?: StepHandlerFn;
+  moduleFn?: HandlerFn;
 
   index: number;
   taskCount: number;
@@ -90,7 +90,7 @@ export default class StepHandler<SD = any, TD = any, TR = any> {
 
   #index: number;
   #module: string;
-  #moduleFn?: StepHandlerFn;
+  #moduleFn?: HandlerFn;
   #parentKey?: string;
 
   #added: { name: string; index: number }[] = [];

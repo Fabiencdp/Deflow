@@ -3,11 +3,11 @@ import Debug from 'debug';
 import StepHandler, { StepOptions } from './StepHandler';
 import Task from './Task';
 
-const debug = Debug('deflow:StepHandler');
+const debug = Debug('deflow:Step');
 
-export type StepHandlerFn = 'module' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
+export type HandlerFn = 'module' | 'beforeAll' | 'afterAll' | 'afterEach' | 'onHandlerError';
 
-export type StepHandlerDefinition<SD, TD, TR> = {
+export type StepProps<SD, TD, TR> = {
   beforeAll?: (step: StepHandler<SD, TD, TR>) => void | Promise<void>;
   handler?: (task: Task<TD, TR>, step: StepHandler<SD, TD, TR>) => TR | Promise<TR>;
   afterEach?: (
@@ -26,18 +26,20 @@ export type StepHandlerDefinition<SD, TD, TR> = {
 };
 
 /**
- * StepHandler
+ * Step Class
+ * Public class to create a step
  */
 export default class Step<SD = any, TD = any, TR = any> {
-  public beforeAll?: StepHandlerDefinition<SD, TD, TR>['beforeAll'];
-  public handler: StepHandlerDefinition<SD, TD, TR>['handler'];
-  public afterEach?: StepHandlerDefinition<SD, TD, TR>['afterEach'];
-  public afterAll?: StepHandlerDefinition<SD, TD, TR>['afterAll'];
-  public onHandlerError?: StepHandlerDefinition<SD, TD, TR>['onHandlerError'];
+  public beforeAll?: StepProps<SD, TD, TR>['beforeAll'];
 
-  public options: StepHandlerDefinition<SD, TD, TR>['options'];
-  public tasks?: StepHandlerDefinition<SD, TD, TR>['tasks'];
-  public data?: StepHandlerDefinition<SD, TD, TR>['data'];
+  public handler: StepProps<SD, TD, TR>['handler'];
+  public afterEach?: StepProps<SD, TD, TR>['afterEach'];
+  public afterAll?: StepProps<SD, TD, TR>['afterAll'];
+  public onHandlerError?: StepProps<SD, TD, TR>['onHandlerError'];
+
+  public options: StepProps<SD, TD, TR>['options'];
+  public tasks?: StepProps<SD, TD, TR>['tasks'];
+  public data?: StepProps<SD, TD, TR>['data'];
 
   public path: string;
   public filename: string;
@@ -45,7 +47,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   /**
    * Step file definition
    */
-  constructor(def: StepHandlerDefinition<SD, TD, TR>) {
+  constructor(def: StepProps<SD, TD, TR>) {
     debug('new Step instance');
 
     this.beforeAll = def.beforeAll;
