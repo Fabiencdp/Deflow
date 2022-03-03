@@ -49,6 +49,7 @@ export type JSONStep<SD = any> = {
   id: string;
   name: string;
 
+  path: string;
   module: string;
   moduleFn?: StepHandlerFn;
 
@@ -88,6 +89,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   public options = defaultStepOptions;
   public workflowId: string;
   public key: string;
+  public path: string;
 
   #index: number;
   #module: string;
@@ -105,6 +107,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     this.id = json.id;
     this.name = json.name;
     this.data = json.data;
+    this.path = json.path;
 
     this.#index = json.index;
     this.#module = json.module;
@@ -147,7 +150,7 @@ export default class Step<SD = any, TD = any, TR = any> {
     }
 
     // Create step modules
-    const { module, path, filename } = await Step.getModule(data.module);
+    const { module, filename } = await Step.getModule(data.module);
     const name = slugify(data.name || filename);
 
     if (!data.moduleFn) {
@@ -184,7 +187,8 @@ export default class Step<SD = any, TD = any, TR = any> {
       name,
       index: data.index,
       data: data.data,
-      module: path,
+      path: module.cwdPath,
+      module: module.path,
       moduleFn: data.moduleFn,
       workflowId: data.workflowId,
       parentKey: data.parentKey,
@@ -465,7 +469,7 @@ export default class Step<SD = any, TD = any, TR = any> {
    */
   static async getModule(
     path: string | StepHandler | Promise<any>
-  ): Promise<{ path: string; module: StepHandler; filename: string }> {
+  ): Promise<{ module: StepHandler; filename: string }> {
     try {
       let module: StepHandler | undefined;
 
@@ -486,7 +490,7 @@ export default class Step<SD = any, TD = any, TR = any> {
 
       const filename = module.path.split('/').pop() || '';
 
-      return { path: module.path, module, filename };
+      return { module, filename };
     } catch (e: any) {
       console.error(e.message);
       throw e;
@@ -496,7 +500,7 @@ export default class Step<SD = any, TD = any, TR = any> {
   /**
    * Get the module from module
    */
-  async #getModule(): Promise<{ module: StepHandler; path: string }> {
+  async #getModule(): Promise<{ module: StepHandler }> {
     return Step.getModule(this.#module);
   }
 
@@ -779,6 +783,7 @@ export default class Step<SD = any, TD = any, TR = any> {
       options: this.options,
       taskCount: this.taskCount,
 
+      path: this.path,
       index: this.#index,
       module: this.#module,
       moduleFn: this.#moduleFn,

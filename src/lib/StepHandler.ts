@@ -37,6 +37,7 @@ export default class StepHandler<SD = any, TD = any, TR = any> {
   public data?: StepHandlerDefinition<SD, TD, TR>['data'];
 
   public path: string;
+  public cwdPath: string;
   public filename: string;
 
   /**
@@ -54,15 +55,16 @@ export default class StepHandler<SD = any, TD = any, TR = any> {
 
     this.options = def.options;
 
-    const { filename, path } = this.getModuleInfo();
+    const { cwdPath, filename, path } = this.getModuleInfo();
     this.path = path;
     this.filename = filename;
+    this.cwdPath = cwdPath;
   }
 
   /**
    * Helper to get the module path
    */
-  public getModuleInfo(): { path: string; filename: string } {
+  public getModuleInfo(): { path: string; filename: string; cwdPath: string } {
     const _prepareStackTrace = Error.prepareStackTrace;
     Error.prepareStackTrace = (_, stack) => stack;
     const stack = new Error().stack as unknown as NodeJS.CallSite[];
@@ -85,6 +87,7 @@ export default class StepHandler<SD = any, TD = any, TR = any> {
     const path = paths[0];
     const cleanPath = path.replace(/.(js|ts)$/, '');
     const filename = path.split('/').pop() || '';
-    return { path: cleanPath, filename };
+    const cwdPath = cleanPath.replace(process.cwd(), '');
+    return { path: cleanPath, cwdPath, filename };
   }
 }
