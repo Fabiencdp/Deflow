@@ -1,6 +1,6 @@
 import '../../helpers/redis';
 
-import redis from 'redis';
+import redis, { RedisClient } from 'redis';
 
 import { ConnectionOptions } from '../../../lib/Client';
 import DeFlow from '../../../lib';
@@ -13,9 +13,10 @@ process.env.NAME = 'listener';
 const checkProcessQueueInterval = 1000;
 const connection: ConnectionOptions = { host: 'localhost', port: 6379 };
 
-const client = redis.createClient(connection);
+let client: RedisClient;
 
 beforeAll(async () => {
+  client = redis.createClient(connection);
   await client.flushall();
 });
 
@@ -29,8 +30,10 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await client.flushall();
-  await client.end(true);
+  if (client) {
+    await client.flushall();
+    await client.end(true);
+  }
   killNodes();
 });
 
