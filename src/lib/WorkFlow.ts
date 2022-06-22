@@ -15,11 +15,14 @@ import DeFlow from './index';
 
 const debug = Debug('deflow:WorkFlow');
 
+type WorkFlowStatus = 'pending' | 'running' | 'done';
+
 export type WorkFlowJSON = {
   id: string;
   name: string;
   queueId: string;
   options: WorkFlowOption;
+  status: WorkFlowStatus;
 };
 
 type WorkFlowOption = Partial<StepOptions> & {
@@ -53,6 +56,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
   public id: string;
   public name: string;
   public options: WorkFlowOption;
+  public status: WorkFlowStatus;
 
   /**
    * Temp in memory store
@@ -74,7 +78,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
     this.id = json.id;
     this.name = json.name;
     this.options = json.options;
-
+    this.status = json.status;
     this.#list = json.queueId;
   }
 
@@ -88,7 +92,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
     const queueId = [id, 'steps'].join(':');
 
     const options = { ...defaultOptions, ...opts };
-    return new WorkFlow({ id, name, queueId, options });
+    return new WorkFlow({ id, name, queueId, options, status: 'pending' });
   }
 
   /**
@@ -131,6 +135,31 @@ export default class WorkFlow extends WorkFlowEventEmitter {
   }
 
   /**
+   * Get workflows by name
+   * @param name
+   */
+  public static async getByName(name: string): Promise<WorkFlow[]> {
+    debug(`getByName ${name}`);
+
+    const deFlow = DeFlow.getInstance();
+    const key = `${slugify(name)}:*`;
+
+    // TODO: zscan iterator, must upgrade redis
+    const ids: string[] = await new Promise((resolve, reject) => {
+      deFlow.client.keys(key, (err, res) => {
+        if (err) {
+          return reject(err);
+        }
+        const mainKeys = res.map((r) => r.split(':').slice(0, 2).join(':'));
+        return resolve([...new Set(mainKeys)]);
+      });
+    });
+
+    const results = await Promise.all(ids.map((id) => this.getById(id).catch(() => null)));
+    return results.filter((w) => w) as WorkFlow[]; // remove null
+  }
+
+  /**
    * get next step and run
    * Publish event
    * @param workflowId
@@ -164,16 +193,25 @@ export default class WorkFlow extends WorkFlowEventEmitter {
    * Run the workflow
    */
   public run(): WorkFlow {
-    this.#store().then(async () => {
-      if (this.#addedSteps.length > 0) {
-        await this.#storeSteps();
-      }
+    let promise = Promise.resolve();
+    if (this.options.ifExist === 'replace') {
+      promise = this.#cleanWorkFlowById(this.name);
+    }
 
-      this.#listenPubSubEvents();
+    promise.then(() => {
+      this.status = 'running';
+      this.#store().then(async () => {
+        if (this.#addedSteps.length > 0) {
+          await this.#storeSteps();
+        }
 
-      // Run workflow
-      return WorkFlow.runNextStep(this.id);
+        this.#listenPubSubEvents();
+
+        // Run workflow
+        return WorkFlow.runNextStep(this.id);
+      });
     });
+
     return this;
   }
 
@@ -280,11 +318,6 @@ export default class WorkFlow extends WorkFlowEventEmitter {
     debug('store');
 
     const deFlow = DeFlow.getInstance();
-
-    if (this.options.ifExist === 'replace') {
-      await this.#cleanWorkFlowById(this.name);
-    }
-
     const data = JSON.stringify(this);
     return new Promise((resolve, reject) => {
       deFlow.client.set(this.id, data, (err) => {
@@ -330,8 +363,12 @@ export default class WorkFlow extends WorkFlowEventEmitter {
         PubSubManager.emitter.removeListener('nextTask', onNextTask);
         PubSubManager.emitter.removeListener('throw', onThrow);
 
+        this.status = 'done';
+        await this.#store();
+
         const result = await this.results();
         this.emit('done', result);
+
         if (this.options.cleanOnDone) {
           setTimeout(() => {
             this.clean();
@@ -446,6 +483,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
       name: this.name,
       queueId: this.#list,
       options: this.options,
+      status: this.status,
     };
   }
 }

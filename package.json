@@ -17,7 +17,6 @@
     "url": "https://github.com/Fabiencdp/Deflow"
   },
   "scripts": {
-    "dev": "nodemon -w src old/index.ts",
     "build": "rm -rf dist && tsc --project ./",
     "prepare": "npm run build",
     "lint": "eslint src",
