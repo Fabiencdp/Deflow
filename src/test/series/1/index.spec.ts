@@ -37,6 +37,7 @@ describe('Series 1', () => {
       name: 'test-simple',
       queueId: `${workflow.id}:steps`,
       options: { ifExist: 'create', cleanOnDone: true },
+      status: 'done',
     };
 
     const res = await new Promise((resolve) => {
