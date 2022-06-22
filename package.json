@@ -1,6 +1,6 @@
 {
   "name": "deflow",
-  "version": "0.4.0",
+  "version": "0.6.1",
   "description": "Deflow is a decentralized job workflow manager backed on Redis",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,6 +18,8 @@
   },
   "scripts": {
     "build": "rm -rf dist && tsc --project ./",
+    "publish": "npx np",
+    "prepublish": "npm run build",
     "prepare": "npm run build",
     "lint": "eslint src",
     "lint:fix": "eslint --fix src",
