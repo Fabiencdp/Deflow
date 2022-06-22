@@ -28,10 +28,6 @@ beforeEach(async () => {
   await client.flushall();
 });
 
-afterEach(async () => {
-  await DeFlow.unregister();
-});
-
 describe('register', () => {
   it('should register and subscribe to redis', async () => {
     const instance = await DeFlow.register({ connection });
@@ -41,6 +37,7 @@ describe('register', () => {
     expect(instance.subscriber).not.toBe(undefined);
     expect(instance.publisher).not.toBe(undefined);
     expect(pubSubSpy).toHaveBeenCalledTimes(1);
+    await DeFlow.unregister();
   });
 
   it('should not register twice', async () => {
@@ -54,6 +51,7 @@ describe('register', () => {
     expect(logSpy).toHaveBeenCalled();
     expect(pubSubSpy).toHaveBeenCalledTimes(1);
     logSpy.mockClear();
+    await DeFlow.unregister();
   });
 });
 
@@ -79,6 +77,7 @@ describe('getInstance', () => {
     await DeFlow.register({ connection });
     const instance = await DeFlow.getInstance();
     expect(instance).not.toBe(undefined);
+    await DeFlow.unregister();
   });
 
   it('should throw', async () => {
@@ -91,6 +90,7 @@ describe('#checkProcessQueue', () => {
   it('should not run on register with value 0', async () => {
     await DeFlow.register({ connection, checkProcessQueueInterval: 0 });
     expect(setInterval).not.toHaveBeenCalled();
+    await DeFlow.unregister();
   });
 
   it('should run on register with default options', async () => {
@@ -100,13 +100,14 @@ describe('#checkProcessQueue', () => {
 
   it('should not restore a task and handle checking expiration', async () => {
     const checkProcessQueueInterval = 100;
+
+    // create instance
+    await DeFlow.register({ checkProcessQueueInterval, connection });
+
     const score = checkProcessQueueInterval;
     const lockTime = score + checkProcessQueueInterval; // interval * 2
     const task = new Task({ failedCount: 0, stepKey: '', data: 1, id: '' });
     await createTaskAndLock(task, score, lockTime);
-
-    // create instance
-    new DeFlow({ checkProcessQueueInterval: checkProcessQueueInterval, connection });
 
     jest.advanceTimersByTime(checkProcessQueueInterval);
     expect(setInterval).toHaveBeenCalledWith(expect.any(Function), checkProcessQueueInterval);
@@ -140,6 +141,7 @@ describe('#checkProcessQueue', () => {
     });
 
     expect(lockExpired).toBe(null);
+    await DeFlow.unregister();
   });
 
   it('should restore a task', async () => {
@@ -190,6 +192,8 @@ describe('#checkProcessQueue', () => {
 
     expect(lock).toBe(null);
     expect(tasks.length).toBe(1);
+
+    await DeFlow.unregister();
   });
 });
 
