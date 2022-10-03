@@ -6,7 +6,7 @@ import { ConnectionOptions } from '../../../lib/Client';
 import DeFlow from '../../../lib';
 import { Task, WorkFlow } from '../../../index';
 import { WorkFlowResult } from '../../../lib/WorkFlow';
-import { killNodes } from '../../helpers/listener';
+import { createNodes, killNodes } from '../../helpers/listener';
 
 import step from './steps/step';
 
@@ -38,6 +38,13 @@ afterAll(async () => {
 
 describe('Series 6', () => {
   it('should do all steps in good order', async () => {
+    const nodes = await createNodes<{ id: string; workflowId: string; taskCount: number }>(3, {
+      cwd: __dirname,
+      file: './initiator.js',
+    });
+
+    console.log(nodes);
+
     const workflow = await WorkFlow.create('ordered')
       .addStep({
         step: step,
@@ -45,9 +52,15 @@ describe('Series 6', () => {
       })
       .run();
 
+    workflow.on('nextTask', (e) => {
+      console.log('next', e);
+    });
+
     const data: WorkFlowResult = await new Promise((resolve) => {
       workflow.on('done', resolve);
     });
+
+    console.log(data);
 
     const expectedOrder = Array.from({ length: 100 }, (_, i) => i + 1);
     const tasks = data.steps.reduce((acc: Task[], step) => [...acc, ...step.tasks], []);
