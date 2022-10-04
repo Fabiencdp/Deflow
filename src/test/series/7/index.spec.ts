@@ -49,7 +49,7 @@ afterAll(async () => {
 
 describe('Series 7', () => {
   it('should do all steps in good order', async () => {
-    await createNodes(3);
+    await createNodes(2);
 
     const expectedOrder = [
       'step1',
