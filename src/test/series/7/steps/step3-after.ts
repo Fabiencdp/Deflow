@@ -1,12 +1,12 @@
 import { StepHandler } from '../../../../index';
 
-import step6After from './step6-after';
+import step3AfterAfter from './step3-after-after';
 
 export default new StepHandler({
   async handler(task, step) {
     await step.addAfter({
-      step: step6After,
-      tasks: [{ value: 'step6After' }],
+      step: step3AfterAfter,
+      tasks: [{ value: 'step3AfterAfter' }],
     });
     return task.data.value;
   },

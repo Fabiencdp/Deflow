@@ -49,42 +49,52 @@ afterAll(async () => {
 
 describe('Series 7', () => {
   it('should do all steps in good order', async () => {
-    const nodes = await createNodes<{ id: string; workflowId: string; taskCount: number }>(3, {
-      cwd: __dirname,
-      file: './initiator.js',
-    });
+    await createNodes(3);
 
-    console.log(nodes);
+    const expectedOrder = [
+      'step1',
+      'step2',
+      'step3Before',
+      'step3',
+      'step3After',
+      'step3AfterAfter',
+      'step4',
+      'step5',
+      'step6',
+      'step6After',
+      'step7',
+      'step8',
+      'step9',
+      'step10',
+      'step11',
+      'step12',
+    ];
 
-    const workflow = await WorkFlow.create('ordered', { cleanOnDone: false })
-      .addStep({ step: step1, tasks: [{ value: 1 }] })
-      .addStep({ step: step2, tasks: [{ value: 2 }] })
-      .addStep({ step: step3, tasks: [{ value: 3 }] })
-      .addStep({ step: step4, tasks: [{ value: 4 }] })
-      .addStep({ step: step5, tasks: [{ value: 5 }] })
-      .addStep({ step: step6, tasks: [{ value: 6 }] })
-      .addStep({ step: step7, tasks: [{ value: 7 }] })
-      .addStep({ step: step8, tasks: [{ value: 8 }] })
-      .addStep({ step: step9, tasks: [{ value: 9 }] })
-      .addStep({ step: step10, tasks: [{ value: 10 }] })
-      .addStep({ step: step11, tasks: [{ value: 11 }] })
-      .addStep({ step: step12, tasks: [{ value: 12 }] })
+    const workflow = await WorkFlow.create('ordered', { cleanOnDone: true })
+      .addStep({ step: step1, tasks: [{ value: 'step1' }] })
+      .addStep({ step: step2, tasks: [{ value: 'step2' }] })
+      .addStep({ step: step3, tasks: [{ value: 'step3' }] })
+      .addStep({ step: step4, tasks: [{ value: 'step4' }] })
+      .addStep({ step: step5, tasks: [{ value: 'step5' }] })
+      .addStep({ step: step6, tasks: [{ value: 'step6' }] })
+      .addStep({ step: step7, tasks: [{ value: 'step7' }] })
+      .addStep({ step: step8, tasks: [{ value: 'step8' }] })
+      .addStep({ step: step9, tasks: [{ value: 'step9' }] })
+      .addStep({ step: step10, tasks: [{ value: 'step10' }] })
+      .addStep({ step: step11, tasks: [{ value: 'step11' }] })
+      .addStep({ step: step12, tasks: [{ value: 'step12' }] })
       .run();
 
-    let i = 1;
+    const resultOrder: string[] = [];
     workflow.on('nextTask', (next) => {
-      expect(next.data.value).toBe(i);
-      console.log('next', next, i);
-      i += 1;
+      resultOrder.push(next.data.value);
     });
 
-    const data: WorkFlowResult = await new Promise((resolve) => {
+    // Wait for done
+    await new Promise((resolve) => {
       workflow.on('done', resolve);
     });
 
-    console.log(data);
-
-    expect(i).toBe(13); // +1 at last increment
-    expect(data.steps.length).toBe(12);
+    expect(resultOrder).toStrictEqual(expectedOrder);
   }, 15000);
 });

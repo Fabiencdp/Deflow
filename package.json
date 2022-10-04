@@ -25,6 +25,7 @@
     "prettier:check": "npx prettier --check src",
     "prettier:write": "npx prettier --write src",
     "jest": "npx jest",
+    "jest-clear-cache": "npx jest --clear-cache",
     "test": "npm run build && npm run jest -- --detectOpenHandles --runInBand",
     "test:watch": "npm run test -- --collectCoverage=false --watch",
     "listener": "LISTENER=1 nodemon --inspect=9228 -w src examples/listener/index.ts",
@@ -32,6 +33,7 @@
     "example:simple": "nodemon --inspect -w src examples/simple/index.ts",
     "example:tree": "nodemon --inspect -w src examples/tree/index.ts",
     "example:multi": "nodemon --inspect -w src examples/multi/index.ts",
+    "example:ordered": "nodemon --inspect -w src examples/ordered/index.ts",
     "validate-branch-name": "validate-branch-name",
     "gen-api-toc": "npx markdown-toc -i ./docs/api.md"
   },

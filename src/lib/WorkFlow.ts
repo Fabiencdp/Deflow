@@ -333,14 +333,14 @@ export default class WorkFlow extends WorkFlowEventEmitter {
    * Store added step sequentially, reverse order to keep good process order
    */
   async #storeSteps(): Promise<void> {
-    await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data) => {
+    const now = Date.now();
+    await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data, index) => {
       await prev;
-
       return Step.create({
         ...data,
         module: data.step,
         options: data.options,
-        index: new Date().getTime(),
+        index: now + index,
         workflowId: this.id,
       });
     }, Promise.resolve());

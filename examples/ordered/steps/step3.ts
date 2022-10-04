@@ -1,4 +1,4 @@
-import { StepHandler } from '../../../../index';
+import { StepHandler } from '../../../src';
 
 import step3After from './step3-after';
 import step3Before from './step3-before';
