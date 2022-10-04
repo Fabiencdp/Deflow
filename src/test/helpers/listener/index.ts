@@ -39,7 +39,7 @@ export async function createNodes<T = string>(
   const array = [...Array(nb).keys()];
   const promises: Promise<T>[] = array.map(async (x) => {
     return new Promise((resolve) => {
-      const listener = fork(file, [`--id=${x + 1}`, '--deflow-node'], {
+      const listener = fork(file, [`--id=${x + 1}`, '--deflow-node', '-r', 'ts-node/register'], {
         cwd,
         silent: true,
       });

@@ -6,7 +6,7 @@ import { ConnectionOptions } from '../../../lib/Client';
 import DeFlow from '../../../lib';
 import { Task, WorkFlow } from '../../../index';
 import { WorkFlowResult } from '../../../lib/WorkFlow';
-import { killNodes } from '../../helpers/listener';
+import { createNodes, killNodes } from '../../helpers/listener';
 
 import step from './steps/step';
 

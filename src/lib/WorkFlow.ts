@@ -155,7 +155,7 @@ export default class WorkFlow extends WorkFlowEventEmitter {
       });
     });
 
-    const results = await Promise.all(ids.map((id) => this.getById(id).catch(() => null)));
+    const results = await Promise.all(ids.map((id) => WorkFlow.getById(id).catch(() => null)));
     return results.filter((w) => w) as WorkFlow[]; // remove null
   }
 
@@ -333,15 +333,16 @@ export default class WorkFlow extends WorkFlowEventEmitter {
    * Store added step sequentially, reverse order to keep good process order
    */
   async #storeSteps(): Promise<void> {
-    await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data) => {
+    const now = Date.now();
+    await this.#addedSteps.reverse().reduce(async (prev: Promise<void | Step>, data, index) => {
       await prev;
-
       return Step.create({
         ...data,
         module: data.step,
-        options: data.options,
-        index: new Date().getTime(),
         workflowId: this.id,
+        options: data.options,
+        // Insure uniqueness of index
+        index: now + index,
       });
     }, Promise.resolve());
   }
@@ -382,7 +383,8 @@ export default class WorkFlow extends WorkFlowEventEmitter {
     };
 
     const onThrow = async (data: SignalThrow['data']) => {
-      if (data.workflowId === this.id) {
+      // Emit error event only if there is a subscribe on it
+      if (data.workflowId === this.id && this.eventNames().includes('error')) {
         const error = new Error(data.error);
         this.emit('error', error);
       }
