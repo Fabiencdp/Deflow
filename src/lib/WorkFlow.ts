@@ -339,9 +339,10 @@ export default class WorkFlow extends WorkFlowEventEmitter {
       return Step.create({
         ...data,
         module: data.step,
-        options: data.options,
-        index: now + index,
         workflowId: this.id,
+        options: data.options,
+        // Insure uniqueness of index
+        index: now + index,
       });
     }, Promise.resolve());
   }
