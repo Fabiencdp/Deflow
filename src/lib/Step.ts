@@ -137,21 +137,21 @@ export default class Step<SD = any, TD = any, TR = any> {
       throw new Error('Workflow does not exist');
     }
 
+    // Create step modules
+    const { module, filename } = await Step.getModule(data.module);
+    const name = slugify(data.name || filename);
+
     if (workFlow.options) {
       options = { ...options, ...workFlow.options };
     }
 
-    if (data.module.options) {
-      options = { ...options, ...data.module.options };
+    if (module.options) {
+      options = { ...options, ...module.options };
     }
 
     if (data.options) {
       options = { ...options, ...data.options };
     }
-
-    // Create step modules
-    const { module, filename } = await Step.getModule(data.module);
-    const name = slugify(data.name || filename);
 
     if (!data.moduleFn) {
       if (typeof module.beforeAll === 'function') {
