@@ -422,7 +422,7 @@ export default class Step<SD = any, TD = any, TR = any> {
 
     // Pub event
     if (this.#moduleFn === 'module') {
-      PubSubManager.publish({
+      await PubSubManager.publish({
         action: Action.NextTask,
         data: { id: task.id, workflowId: this.workflowId, data: task.data, stepKey: task.stepKey },
       });
@@ -623,8 +623,11 @@ export default class Step<SD = any, TD = any, TR = any> {
   async #removeIfDone(): Promise<boolean> {
     debug('removeIfDone');
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.#deflow.client.llen(this.#taskDoneQueue, (err, reply) => {
+        if (err) {
+          return reject(err);
+        }
         if (reply !== this.taskCount) {
           debug(`${reply}/${this.taskCount} tasks not done`);
           return resolve(false);

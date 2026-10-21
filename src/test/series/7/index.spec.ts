@@ -4,7 +4,6 @@ import redis, { ClientOpts } from 'redis';
 
 import DeFlow from '../../../lib';
 import { WorkFlow } from '../../../index';
-import { WorkFlowResult } from '../../../lib/WorkFlow';
 import { createNodes, killNodes } from '../../helpers/listener';
 
 import step1 from './steps/step1';
@@ -95,5 +94,5 @@ describe('Series 7', () => {
     });
 
     expect(resultOrder).toStrictEqual(expectedOrder);
-  }, 15000);
+  }, 30000);
 });

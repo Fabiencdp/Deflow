@@ -7,7 +7,7 @@ import { WorkFlowResult } from '../../../lib/WorkFlow';
 
 import step1 from './steps/step1';
 
-jest.useFakeTimers('legacy');
+jest.useRealTimers();
 
 const checkProcessQueueInterval = 1000;
 const connection: ClientOpts = { url: 'redis://localhost:6379' };
@@ -32,7 +32,7 @@ describe('Series 2', () => {
   it('should timeout and retry 2 times', async () => {
     const timeout = 500;
     const retry = 3;
-    const workflow = await WorkFlow.create('error-handling')
+    const workflow = await WorkFlow.create('error-handling', { cleanOnDone: false })
       .addStep({
         step: step1,
         tasks: [timeout - 500, timeout - 200, timeout + 200, timeout + 500],
@@ -42,10 +42,6 @@ describe('Series 2', () => {
         },
       })
       .run();
-
-    workflow.on('nextTask', () => {
-      jest.advanceTimersByTime(checkProcessQueueInterval);
-    });
 
     const result: WorkFlowResult = await new Promise((resolve) => {
       workflow.on('done', resolve);
@@ -63,5 +59,5 @@ describe('Series 2', () => {
     expect(shouldFail[1].failedCount).toBe(retry);
 
     expect(shouldFail[0].error).toBe('Task module timeout');
-  });
+  }, 30000);
 });

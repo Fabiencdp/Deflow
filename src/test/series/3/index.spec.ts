@@ -7,7 +7,7 @@ import DeFlow, { Task, WorkFlow } from '../../../index';
 import failWhenValueIs1 from './steps/failWhenValueIs1';
 import throwWhenValueIs1 from './steps/throwWhenValueIs1';
 
-jest.useFakeTimers('legacy');
+jest.useRealTimers();
 
 const checkProcessQueueInterval = 1000;
 const connection: ClientOpts = { host: 'localhost' };
@@ -37,7 +37,7 @@ describe('Series 3', () => {
     // Task with data === 1 will fail 3 times
     const expectedNextTaskEventCount = tasks.length - 1 + taskMaxFailCount;
 
-    const workflow = WorkFlow.create('long-process')
+    const workflow = WorkFlow.create('long-process', { cleanOnDone: false })
       .addStep({
         step: failWhenValueIs1,
         tasks: [10, 1, 20, 30, 40], // value "1" will fail
@@ -49,10 +49,8 @@ describe('Series 3', () => {
       })
       .run();
 
-    // Simulate the #checkProcessQueue call each
-    workflow.on('nextTask', (d) => {
+    workflow.on('nextTask', () => {
       nextTaskEventCount += 1;
-      jest.advanceTimersByTime(checkProcessQueueInterval);
     });
 
     const results: Task[] = await new Promise((resolve) => {
@@ -80,7 +78,7 @@ describe('Series 3', () => {
     await DeFlow.unregister();
     await DeFlow.register({ connection, checkProcessQueueInterval: 0 });
 
-    const workflow = await WorkFlow.create('long-process-2')
+    const workflow = await WorkFlow.create('long-process-2', { cleanOnDone: false })
       .addStep({
         step: throwWhenValueIs1,
         tasks: [10, 1], // value "1" will fail

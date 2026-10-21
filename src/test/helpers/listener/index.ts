@@ -39,12 +39,15 @@ export async function createNodes<T = string>(
   const array = [...Array(nb).keys()];
   const promises: Promise<T>[] = array.map(async (x) => {
     return new Promise((resolve) => {
-      const listener = fork(file, [`--id=${x + 1}`, '--deflow-node', '-r', 'ts-node/register'], {
+      const listener = fork(file, [`--id=${x + 1}`, '--deflow-node'], {
         cwd,
         silent: true,
+        execArgv: ['-r', 'ts-node/register/transpile-only'],
+        env: { ...process.env, TS_NODE_COMPILER_OPTIONS: JSON.stringify({ allowJs: false }) },
       });
 
       listeners.push(listener);
+      listener.stderr?.on('data', (data) => process.stderr.write(data));
       listener.on('message', (id: T) => resolve(id));
       listener.on('disconnect', () => {
         listeners = listeners.filter((l) => l.pid === listener.pid);

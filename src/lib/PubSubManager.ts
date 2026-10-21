@@ -133,7 +133,14 @@ export default class PubSubManager {
     const publisherId = deFlow.id;
     const data = { ...signal, action: signal.action, publisherId };
     const jsonSignal = JSON.stringify(data);
-    deFlow.publisher.publish(PubSubManager.channel, jsonSignal);
+    return new Promise((resolve, reject) => {
+      deFlow.publisher.publish(PubSubManager.channel, jsonSignal, (err) => {
+        if (err) {
+          return reject(err);
+        }
+        resolve();
+      });
+    });
   }
 
   /**

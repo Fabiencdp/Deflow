@@ -1,4 +1,4 @@
-const DeFlow = require('../../../../dist/index');
+const DeFlow = require('../../../../src/index');
 
 const arg = process.argv.find((arg) => arg.startsWith('--id'));
 const id = parseInt(arg.replace('--id', '').replace('=', ''), 10);
