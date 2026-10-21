@@ -1,10 +1,9 @@
 import '../test/helpers/redis-mock';
-import redis from 'redis';
+import redis, { ClientOpts } from 'redis';
 
 import { StepHandler, WorkFlow } from '../index';
 
 import PubSubManager from './PubSubManager';
-import { ConnectionOptions } from './Client';
 import Task from './Task';
 import Step from './Step';
 
@@ -14,7 +13,7 @@ jest.mock('./PubSubManager');
 
 const pubSubSpy = jest.spyOn(PubSubManager, 'subscribe');
 
-const connection: ConnectionOptions = { host: 'localhost' };
+const connection: ClientOpts = { host: 'localhost' };
 
 const client = redis.createClient(connection);
 

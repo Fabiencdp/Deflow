@@ -1,6 +1,6 @@
 import DeFlow, { WorkFlow } from '../../src';
 
-DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
+DeFlow.register({ connection: { url: 'redis://localhost:6379' } });
 
 setTimeout(() => {
   createWorkflow();

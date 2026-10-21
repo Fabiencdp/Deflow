@@ -1,8 +1,7 @@
 import '../../helpers/redis';
 
-import redis from 'redis';
+import redis, { ClientOpts } from 'redis';
 
-import { ConnectionOptions } from '../../../lib/Client';
 import DeFlow from '../../../lib';
 import { WorkFlow } from '../../../index';
 import { WorkFlowResult } from '../../../lib/WorkFlow';
@@ -24,7 +23,7 @@ import step12 from './steps/step12';
 process.env.NAME = 'creator';
 
 const checkProcessQueueInterval = 1000;
-const connection: ConnectionOptions = { host: 'localhost', port: 6379 };
+const connection: ClientOpts = { url: 'redis://localhost:6379' };
 
 const client = redis.createClient(connection);
 

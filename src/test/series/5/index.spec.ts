@@ -1,8 +1,7 @@
 import '../../helpers/redis';
 
-import redis, { RedisClient } from 'redis';
+import redis, { ClientOpts, RedisClient } from 'redis';
 
-import { ConnectionOptions } from '../../../lib/Client';
 import DeFlow from '../../../lib';
 import { WorkFlow } from '../../../index';
 import { createNodes, killNodes } from '../../helpers/listener';
@@ -11,7 +10,7 @@ import PubSubManager from '../../../lib/PubSubManager';
 process.env.NAME = 'listener';
 
 const checkProcessQueueInterval = 1000;
-const connection: ConnectionOptions = { host: 'localhost', port: 6379 };
+const connection: ClientOpts = { url: 'redis://localhost:6379' };
 
 let client: RedisClient;
 

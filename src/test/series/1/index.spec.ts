@@ -1,11 +1,10 @@
 import '../../helpers/redis';
 
-import redis from 'redis';
+import redis, { ClientOpts } from 'redis';
 
 import DeFlow, { WorkFlow } from '../../../index';
-import { ConnectionOptions } from '../../../lib/Client';
 
-const connection: ConnectionOptions = { host: 'localhost' };
+const connection: ClientOpts = { host: 'localhost' };
 const client = redis.createClient(connection);
 
 beforeEach(async () => {

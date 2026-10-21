@@ -1,9 +1,8 @@
 import '../../helpers/redis';
 
-import redis from 'redis';
+import redis, { ClientOpts } from 'redis';
 
 import DeFlow, { Task, WorkFlow } from '../../../index';
-import { ConnectionOptions } from '../../../lib/Client';
 import { WorkFlowResult } from '../../../lib/WorkFlow';
 
 import step1 from './steps/step1';
@@ -11,7 +10,7 @@ import step1 from './steps/step1';
 jest.useFakeTimers('legacy');
 
 const checkProcessQueueInterval = 1000;
-const connection: ConnectionOptions = { host: 'localhost', port: 6379 };
+const connection: ClientOpts = { url: 'redis://localhost:6379' };
 
 const client = redis.createClient(connection);
 

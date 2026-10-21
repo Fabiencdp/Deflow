@@ -1,11 +1,12 @@
 const DeFlow = require('../../../../dist/index');
+
 const step1 = require('./steps/step1');
 
 const arg = process.argv.find((arg) => arg.startsWith('--id'));
 const id = parseInt(arg.replace('--id', '').replace('=', ''), 10);
 process.env.NAME = id;
 
-DeFlow.default.register({ connection: { host: 'localhost', port: 6379 } });
+DeFlow.default.register({ connection: { url: 'redis://localhost:6379' } });
 
 // Wait for redis connection ready
 setTimeout(async () => {

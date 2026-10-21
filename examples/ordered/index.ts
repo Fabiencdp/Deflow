@@ -8,7 +8,7 @@ import step4 from './steps/step4';
 import step5 from './steps/step5';
 import step6 from './steps/step6';
 
-DeFlow.register({ connection: { host: 'localhost', port: 6379 } });
+DeFlow.register({ connection: { url: 'redis://localhost:6379' } });
 
 setTimeout(async () => {
   await checkForOrderedResults();

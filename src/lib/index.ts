@@ -1,8 +1,8 @@
 import Debug from 'debug';
-import { RedisClient } from 'redis';
+import { ClientOpts, RedisClient } from 'redis';
 import { generate } from 'short-uuid';
 
-import Client, { ConnectionOptions } from './Client';
+import Client from './Client';
 import PubSubManager from './PubSubManager';
 import WorkFlow from './WorkFlow';
 import Step from './Step';
@@ -11,7 +11,7 @@ import Task, { JSONTask } from './Task';
 const debug = Debug('deflow');
 
 export interface DeFlowOptions {
-  connection: ConnectionOptions;
+  connection: ClientOpts;
   checkProcessQueueInterval?: number;
 }
 

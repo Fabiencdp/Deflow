@@ -1,9 +1,9 @@
 import '../test/helpers/redis-mock';
-import { RedisClient } from 'redis';
+import { ClientOpts, RedisClient } from 'redis';
 
-import Client, { ConnectionOptions } from './Client';
+import Client from './Client';
 
-const connection: ConnectionOptions = { host: 'localhost', port: 6379 };
+const connection: ClientOpts = { url: 'redis://localhost:6379' };
 
 describe('Client', () => {
   it('should init client', () => {
